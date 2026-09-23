@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import '../core/routes/route_name.dart';
 import '../widget/app_colors.dart';
 import '../widget/app_text.dart';
-import 'auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -11,8 +11,11 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
-  static const _splashDuration = Duration(seconds: 5);
+class _SplashScreenState extends State<SplashScreen>
+    with TickerProviderStateMixin {
+  static const _splashDuration = Duration(seconds: 4);
+  static const _entranceDuration = Duration(milliseconds: 750);
+  static const _pulseDuration = Duration(milliseconds: 1400);
 
   Timer? _colorTimer;
 
@@ -23,40 +26,78 @@ class _SplashScreenState extends State<SplashScreen> {
     Colors.orangeAccent,
     Colors.purpleAccent,
   ];
-
   int _colorIndex = 0;
+
+  // Drives the left -> right progress dot; its value IS the progress.
+  late final AnimationController _progressController;
+
+  // One-shot entrance (logo + title) pop-in.
+  late final AnimationController _entranceController;
+  late final Animation<double> _entranceScale;
+  late final Animation<double> _entranceOpacity;
+
+  // Gentle continuous "breathing" once the logo has landed.
+  late final AnimationController _pulseController;
+  late final Animation<double> _pulseScale;
 
   @override
   void initState() {
     super.initState();
+
     _colorTimer = Timer.periodic(const Duration(milliseconds: 700), (timer) {
       if (!mounted) return;
-      setState(() {
-        _colorIndex = (_colorIndex + 1) % _loaderColors.length;
-      });
+      setState(() => _colorIndex = (_colorIndex + 1) % _loaderColors.length);
     });
-    _navigateNext();
+
+    _entranceController =
+        AnimationController(vsync: this, duration: _entranceDuration);
+    _entranceScale = CurvedAnimation(
+      parent: _entranceController,
+      curve: Curves.easeOutBack,
+    );
+    _entranceOpacity = CurvedAnimation(
+      parent: _entranceController,
+      curve: const Interval(0, .6, curve: Curves.easeOut),
+    );
+
+    _pulseController =
+    AnimationController(vsync: this, duration: _pulseDuration)
+      ..repeat(reverse: true);
+    _pulseScale = Tween<double>(begin: 1, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _progressController =
+    AnimationController(vsync: this, duration: _splashDuration)
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) _navigateNext();
+      });
+
+    // Logo/title pop in immediately; the full-length progress run starts
+    // in the same frame so it always finishes exactly at _splashDuration.
+    _entranceController.forward();
+    _progressController.forward();
   }
 
-  Future<void> _navigateNext() async {
-    await Future.delayed(_splashDuration);
+  void _navigateNext() {
     if (!mounted) return;
-    Navigator.of(
-      context,
-    ).pushReplacement(MaterialPageRoute(builder: (_) => const LoginScreen()));
+    Navigator.of(context).pushReplacementNamed(RouteNames.login);
   }
 
   @override
   void dispose() {
     _colorTimer?.cancel();
+    _entranceController.dispose();
+    _pulseController.dispose();
+    _progressController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-
-    final iconSize = size.width * 0.32 > 140 ? 140.0 : size.width * 0.32;
+    // ✅ Logo size chhota kiya: 140 -> 100
+    final iconSize = size.width * 0.24 > 100 ? 100.0 : size.width * 0.24;
 
     return Scaffold(
       body: Container(
@@ -73,51 +114,15 @@ class _SplashScreenState extends State<SplashScreen> {
                   children: [
                     const Spacer(flex: 4),
 
-                    _BrandIcon(size: iconSize),
+                    _buildAnimatedBrandBlock(size, iconSize),
 
-                    const SizedBox(height: 26),
+                    // ✅ Gap kam kiya: flex 3 -> flex 1
+                    const Spacer(flex: 1),
 
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppText(
-                          "AttendEase",
-                          fontSize: size.width * 0.09 > 34
-                              ? 34
-                              : size.width * 0.09,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.whiteColor,
-                        ),
-
-                        const SizedBox(width: 6),
-
-                        Container(
-                          height: 8,
-                          width: 8,
-                          margin: const EdgeInsets.only(top: 6),
-                          decoration: const BoxDecoration(
-                            color: AppColors.secondaryColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 8),
-
-                    AppText(
-                      "SMART EMPLOYEE ATTENDANCE",
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 2.2,
-                      color: AppColors.whiteColor.withOpacity(.75),
-                    ),
-                    const Spacer(flex: 3),
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
-                      transitionBuilder: (child, animation) {
-                        return FadeTransition(opacity: animation, child: child);
-                      },
+                      transitionBuilder: (child, animation) =>
+                          FadeTransition(opacity: animation, child: child),
                       child: SizedBox(
                         key: ValueKey(_colorIndex),
                         height: 34,
@@ -130,11 +135,13 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 22),
-                    _AnimatedProgressTrack(duration: _splashDuration),
-                    const Spacer(flex: 4),
+                    const SizedBox(height: 18),
+
+                    _AnimatedProgressTrack(controller: _progressController),
+
+                    const Spacer(flex: 3),
                     const _ProtocolBadge(),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: 9),
                     AppText(
                       "AttendEase Enterprise Edition • v2.4.0",
                       fontSize: 12,
@@ -159,6 +166,57 @@ class _SplashScreenState extends State<SplashScreen> {
       ),
     );
   }
+
+  Widget _buildAnimatedBrandBlock(Size size, double iconSize) {
+    return AnimatedBuilder(
+      animation: Listenable.merge([_entranceController, _pulseController]),
+      builder: (context, child) {
+        final entranceValue = _entranceScale.value.clamp(0.0, 1.4);
+        return Opacity(
+          opacity: _entranceOpacity.value,
+          child: Transform.scale(
+            scale: entranceValue * _pulseScale.value,
+            child: child,
+          ),
+        );
+      },
+      child: Column(
+        children: [
+          _BrandIcon(size: iconSize),
+          const SizedBox(height: 18),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppText(
+                "AttendEase",
+                fontSize: size.width * 0.09 > 34 ? 34 : size.width * 0.09,
+                fontWeight: FontWeight.w600,
+                color: AppColors.whiteColor,
+              ),
+              const SizedBox(width: 6),
+              Container(
+                height: 8,
+                width: 8,
+                margin: const EdgeInsets.only(top: 6),
+                decoration: const BoxDecoration(
+                  color: AppColors.secondaryColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          AppText(
+            "SMART EMPLOYEE ATTENDANCE",
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 2.2,
+            color: AppColors.whiteColor.withOpacity(.75),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _BrandIcon extends StatelessWidget {
@@ -174,29 +232,21 @@ class _BrandIcon extends StatelessWidget {
         Container(
           height: size,
           width: size,
+          padding: EdgeInsets.all(size * 0.1),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                AppColors.primaryColor.withOpacity(.9),
-                AppColors.primaryDark,
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+            color: AppColors.whiteColor,
             borderRadius: BorderRadius.circular(size * 0.26),
-            border: Border.all(color: AppColors.whiteColor.withOpacity(.25)),
+            border: Border.all(color: AppColors.whiteColor.withOpacity(.6)),
             boxShadow: [
               BoxShadow(
                 color: AppColors.blackColor.withOpacity(.25),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
+                blurRadius: 10,
               ),
             ],
           ),
-          child: Icon(
-            Icons.watch_later_rounded,
-            color: AppColors.whiteColor,
-            size: size * 0.5,
+          child: Image.asset(
+            "assets/icons/icon.png",
+            fit: BoxFit.contain,
           ),
         ),
         if (showStatusDot)
@@ -219,8 +269,8 @@ class _BrandIcon extends StatelessWidget {
 }
 
 class _AnimatedProgressTrack extends StatelessWidget {
-  final Duration duration;
-  const _AnimatedProgressTrack({required this.duration});
+  final AnimationController controller;
+  const _AnimatedProgressTrack({required this.controller});
 
   @override
   Widget build(BuildContext context) {
@@ -235,15 +285,13 @@ class _AnimatedProgressTrack extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final trackWidth = constraints.maxWidth - 8;
-          return TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: duration,
-            curve: Curves.easeInOut,
-            builder: (context, value, child) {
+          return AnimatedBuilder(
+            animation: controller,
+            builder: (context, child) {
               return Align(
                 alignment: Alignment.centerLeft,
                 child: Padding(
-                  padding: EdgeInsets.only(left: trackWidth * value),
+                  padding: EdgeInsets.only(left: trackWidth * controller.value),
                   child: child,
                 ),
               );

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/routes/route_name.dart';
 import '../../widget/app_button.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
@@ -45,7 +46,12 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
     try {
+
       await Future.delayed(const Duration(seconds: 2));
+
+      if (!mounted) return;
+
+      Navigator.of(context).pushReplacementNamed(RouteNames.bottombar);
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
