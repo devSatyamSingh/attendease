@@ -3,12 +3,7 @@ import 'package:shimmer/shimmer.dart';
 
 import 'app_colors.dart';
 
-/// AttendEase — reusable loading indicator.
-///
-/// Use `AppLoader()` inline (e.g. center of a screen while today's
-/// attendance / leave balance loads), or `AppLoader.show(context)` /
-/// `AppLoader.hide(context)` as a full-screen blocking overlay while a
-/// check-in, check-out, or leave-submit API call is running.
+
 class AppLoader extends StatelessWidget {
   final double size;
   final Color? color;
@@ -36,19 +31,6 @@ class AppLoader extends StatelessWidget {
       ),
     );
   }
-
-  /// Blocking full-screen overlay. Call before an API request and
-  /// [hide] it in the `finally` block so it always closes even on error.
-  ///
-  /// Example:
-  /// ```dart
-  /// AppLoader.show(context, message: "Checking in...");
-  /// try {
-  ///   await attendanceRepo.checkIn(...);
-  /// } finally {
-  ///   AppLoader.hide(context);
-  /// }
-  /// ```
   static void show(BuildContext context, {String? message}) {
     showDialog(
       context: context,
@@ -94,9 +76,7 @@ class AppLoader extends StatelessWidget {
   }
 }
 
-/// Shimmer skeleton block — used for history/leave-history/report list
-/// loading states instead of a spinner (feels faster, matches list shape).
-/// Needs the `shimmer` package (already in pubspec.yaml).
+
 class AppSkeletonBox extends StatelessWidget {
   final double height;
   final double width;

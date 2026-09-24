@@ -1,43 +1,31 @@
 import 'package:flutter/material.dart';
-import '../../core/routes/app_routes.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
+import '../../core/errors/failure.dart';
 import '../../core/routes/route_name.dart';
+import '../../model/active_device_model.dart';
+import '../../model/profile_model.dart';
+import '../../viewmodel/auth_viewmodel.dart';
+import '../../viewmodel/device_viewmodel.dart';
+import '../../viewmodel/profile_viewmodel.dart';
 import '../../widget/app_button.dart';
 import '../../widget/app_colors.dart';
+import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
 
-
-class ProfileScreen extends StatelessWidget {
+/// AttendEase — Profile screen.
+/// Watches [profileViewModelProvider] (the real `GET /profile` call)
+/// and [deviceViewModelProvider] (`GET /devices/status`) — each
+/// renders its own loading/error/data state independently, so a slow
+/// device-status call never blocks the employment-details card from
+/// showing, and vice versa.
+class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
-  // ---- Replace these with real data from your ProfileViewModel ----
-  static const _employeeName = "Rahul Sharma";
-  static const _designation = "Senior Flutter Developer";
-  static const _department = "Mobile Engineering";
-  static const _empId = "EMP-48209";
-  static const _avatarUrl = "https://i.pravatar.cc/150?img=12";
-  static const _isOnline = true;
-
-  static const _presentDays = "18";
-  static const _graceUsed = "01";
-  static const _avgHours = "8.4h";
-
-  static const _employmentStatus = "Active Full-Time";
-  static const _workEmail = "rahul.sharma@company.com";
-  static const _contactPhone = "+91 98765 43210";
-  static const _expectedTiming = "10:00 AM – 07:00 PM";
-  static const _shiftTag = "Standard 9h";
-  static const _gracePeriod = "15 minutes window";
-  static const _graceTag = "Daily";
-
-  static const _deviceModel = "iPhone 15 Pro Max";
-  static const _deviceInfo = "iOS 17.5 • Biometric Verified";
-  static const _deviceBound = true;
-
-  static const _appVersion = "AttendEase v2.4.0";
-  static const _footerText = "AttendEase Mobile • Zero-Trust Enterprise Edition";
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final profileAsync = ref.watch(profileViewModelProvider);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldBgColor,
       body: SafeArea(
@@ -45,46 +33,71 @@ class ProfileScreen extends StatelessWidget {
         child: Center(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 560),
-            child: ListView(
-              padding: EdgeInsets.zero,
-              children: [
-                _buildHeader(context),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildOverviewHeader(context),
-                      const SizedBox(height: 12),
-                      _buildOverviewStatsRow(context),
-                      const SizedBox(height: 20),
-                      _buildEmploymentDetailsCard(context),
-                      const SizedBox(height: 16),
-                      _buildDeviceCard(context),
-                      const SizedBox(height: 16),
-                      _buildSettingsList(context),
-                      const SizedBox(height: 20),
-                      _buildSignOutButton(context),
-                      const SizedBox(height: 14),
-                      Center(
-                        child: CaptionText(
-                          _footerText,
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ],
-                  ),
+            child: RefreshIndicator(
+              color: AppColors.primaryColor,
+              onRefresh: () => Future.wait([
+                ref.read(profileViewModelProvider.notifier).refresh(),
+                ref.read(deviceViewModelProvider.notifier).refresh(),
+              ]),
+              child: profileAsync.when(
+                loading: () => const _ProfileSkeleton(),
+                error: (error, _) => _ProfileErrorState(
+                  message: error is Failure ? error.message : "Couldn't load your profile.",
+                  onRetry: () => ref.read(profileViewModelProvider.notifier).refresh(),
                 ),
-              ],
+                data: (profile) => _ProfileContent(profile: profile),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
 
-  // ==================== GRADIENT HEADER ====================
-  Widget _buildHeader(BuildContext context) {
+// ==================== LOADED CONTENT ====================
+class _ProfileContent extends ConsumerWidget {
+  final ProfileModel profile;
+  const _ProfileContent({required this.profile});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      children: [
+        _buildHeader(context, profile),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildHistoryLink(context),
+              const SizedBox(height: 16),
+              _buildEmploymentDetailsCard(profile),
+              const SizedBox(height: 16),
+              _buildDeviceCard(context, ref),
+              const SizedBox(height: 16),
+              _buildSettingsList(context),
+              const SizedBox(height: 20),
+              _buildSignOutButton(context, ref),
+              const SizedBox(height: 14),
+              const Center(
+                child: CaptionText(
+                  "AttendEase Mobile • Zero-Trust Enterprise Edition",
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---- Header ----
+  Widget _buildHeader(BuildContext context, ProfileModel profile) {
+    final initials = _initialsOf(profile.name);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
@@ -104,12 +117,7 @@ class ProfileScreen extends StatelessWidget {
                 icon: Icons.arrow_back_rounded,
                 onTap: () => Navigator.maybePop(context),
               ),
-              AppText(
-                "Profile",
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: AppColors.whiteColor,
-              ),
+              AppText("Profile", fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.whiteColor),
               _buildCircleIconButton(
                 icon: Icons.edit_rounded,
                 onTap: () {
@@ -119,21 +127,31 @@ class ProfileScreen extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 18),
-          _buildAvatar(),
-          const SizedBox(height: 14),
-          AppText(
-            _employeeName,
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: AppColors.whiteColor,
+          Container(
+            height: 92,
+            width: 92,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppColors.whiteColor.withOpacity(.18),
+              border: Border.all(color: AppColors.whiteColor.withOpacity(.6), width: 2),
+            ),
+            child: AppText(
+              initials,
+              fontSize: 30,
+              fontWeight: FontWeight.w700,
+              color: AppColors.whiteColor,
+            ),
           ),
+          const SizedBox(height: 14),
+          AppText(profile.name, fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.whiteColor),
           const SizedBox(height: 4),
           AppText(
-            "$_designation • $_department",
+            profile.email,
             fontSize: 13,
             color: AppColors.whiteColor.withOpacity(.85),
             textAlign: TextAlign.center,
-            maxLines: 2,
+            maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 10),
@@ -146,14 +164,10 @@ class ProfileScreen extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(
-                  Icons.badge_outlined,
-                  size: 14,
-                  color: AppColors.whiteColor,
-                ),
+                const Icon(Icons.badge_outlined, size: 14, color: AppColors.whiteColor),
                 const SizedBox(width: 6),
                 AppText(
-                  _empId,
+                  profile.employeeCode,
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                   color: AppColors.whiteColor,
@@ -166,10 +180,14 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCircleIconButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
+  String _initialsOf(String name) {
+    final parts = name.trim().split(RegExp(r"\s+")).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return "?";
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+  }
+
+  Widget _buildCircleIconButton({required IconData icon, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
@@ -186,140 +204,43 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAvatar() {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: 92,
-          width: 92,
-          padding: const EdgeInsets.all(3),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.whiteColor.withOpacity(.6), width: 2),
-          ),
-          child: CircleAvatar(
-            backgroundColor: AppColors.whiteColor.withOpacity(.2),
-            backgroundImage: const NetworkImage(_avatarUrl),
-          ),
+  // ---- History link ----
+  Widget _buildHistoryLink(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        // TODO: Navigator.pushNamed(context, AppRoutes.history);
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppColors.cardBgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderColor),
         ),
-        if (_isOnline)
-          Positioned(
-            bottom: 4,
-            right: 4,
-            child: Container(
-              height: 16,
-              width: 16,
-              decoration: BoxDecoration(
-                color: AppColors.workingColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.whiteColor, width: 2),
-              ),
+        child: Row(
+          children: [
+            Container(
+              height: 38,
+              width: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(11)),
+              child: const Icon(Icons.history_rounded, size: 18, color: AppColors.primaryColor),
             ),
-          ),
-      ],
-    );
-  }
-
-  // ==================== OVERVIEW ====================
-  Widget _buildOverviewHeader(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        AppText("October Overview", fontSize: 16, fontWeight: FontWeight.w700),
-        InkWell(
-          onTap: () {
-            // TODO: Navigator.pushNamed(context, AppRoutes.history);
-          },
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppText(
-                "Detailed Logs",
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: AppColors.primaryColor,
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                size: 16,
-                color: AppColors.primaryColor,
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildOverviewStatsRow(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: _buildStatPill(
-            icon: Icons.check_circle_outline_rounded,
-            iconColor: AppColors.successColor,
-            value: _presentDays,
-            label: "Present Days",
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildStatPill(
-            icon: Icons.watch_later_outlined,
-            iconColor: AppColors.errorColor,
-            value: _graceUsed,
-            label: "Grace Used",
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: _buildStatPill(
-            icon: Icons.timelapse_rounded,
-            iconColor: AppColors.infoColor,
-            value: _avgHours,
-            label: "Per Day",
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatPill({
-    required IconData icon,
-    required Color iconColor,
-    required String value,
-    required String label,
-  }) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-      decoration: BoxDecoration(
-        color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.borderColor),
-      ),
-      child: Column(
-        children: [
-          Container(
-            height: 32,
-            width: 32,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(.12),
-              shape: BoxShape.circle,
+            const SizedBox(width: 12),
+            Expanded(
+              child: AppText("View Attendance History", fontSize: 14, fontWeight: FontWeight.w700),
             ),
-            child: Icon(icon, size: 16, color: iconColor),
-          ),
-          const SizedBox(height: 8),
-          AppText(value, fontSize: 18, fontWeight: FontWeight.w700),
-          const SizedBox(height: 2),
-          CaptionText(label, textAlign: TextAlign.center),
-        ],
+            const Icon(Icons.chevron_right_rounded, color: AppColors.placeholderColor),
+          ],
+        ),
       ),
     );
   }
 
-  // ==================== EMPLOYMENT DETAILS ====================
-  Widget _buildEmploymentDetailsCard(BuildContext context) {
+  // ---- Employment details (real ProfileModel fields) ----
+  Widget _buildEmploymentDetailsCard(ProfileModel profile) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -335,49 +256,45 @@ class ProfileScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               AppText("Employment Details", fontSize: 15, fontWeight: FontWeight.w700),
-              _buildDotChip(_employmentStatus, AppColors.successColor),
+              _buildDotChip(
+                profile.status,
+                AppColors.requestStatusColor(profile.status),
+              ),
             ],
           ),
           const SizedBox(height: 14),
-          _buildDetailRow(
-            icon: Icons.mail_outline_rounded,
-            label: "Work Email",
-            value: _workEmail,
-            trailing: Icons.copy_rounded,
-          ),
+          _buildDetailRow(icon: Icons.mail_outline_rounded, label: "Work Email", value: profile.email),
           const Divider(height: 26),
-          _buildDetailRow(
-            icon: Icons.call_outlined,
-            label: "Contact Phone",
-            value: _contactPhone,
-            trailing: Icons.phone_forwarded_outlined,
-          ),
+          _buildDetailRow(icon: Icons.call_outlined, label: "Contact Phone", value: profile.phone),
           const Divider(height: 26),
           _buildDetailRow(
             icon: Icons.access_time_rounded,
             label: "Expected Timing",
-            value: _expectedTiming,
-            tag: _shiftTag,
+            value:
+            "${_formatTime(profile.expectedLoginTime)} – ${_formatTime(profile.expectedLogoutTime)}",
           ),
           const Divider(height: 26),
           _buildDetailRow(
             icon: Icons.hourglass_bottom_rounded,
             label: "Grace Period",
-            value: _gracePeriod,
-            tag: _graceTag,
+            value: "${profile.lateGraceMinutes} minutes window",
           ),
         ],
       ),
     );
   }
 
-  Widget _buildDetailRow({
-    required IconData icon,
-    required String label,
-    required String value,
-    IconData? trailing,
-    String? tag,
-  }) {
+  String _formatTime(String hms) {
+    try {
+      final parts = hms.split(":");
+      final dt = DateTime(2000, 1, 1, int.parse(parts[0]), int.parse(parts[1]));
+      return DateFormat("hh:mm a").format(dt);
+    } catch (_) {
+      return hms;
+    }
+  }
+
+  Widget _buildDetailRow({required IconData icon, required String label, required String value}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -386,10 +303,7 @@ class ProfileScreen extends StatelessWidget {
           width: 38,
           alignment: Alignment.center,
           margin: const EdgeInsets.only(right: 12),
-          decoration: BoxDecoration(
-            color: AppColors.primaryLight,
-            borderRadius: BorderRadius.circular(10),
-          ),
+          decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(10)),
           child: Icon(icon, size: 18, color: AppColors.primaryColor),
         ),
         Expanded(
@@ -398,43 +312,18 @@ class ProfileScreen extends StatelessWidget {
             children: [
               CaptionText(label),
               const SizedBox(height: 2),
-              AppText(
-                value,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
+              AppText(value, fontSize: 14, fontWeight: FontWeight.w600, maxLines: 1, overflow: TextOverflow.ellipsis),
             ],
           ),
         ),
-        if (tag != null)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: AppColors.fieldFillColor,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: AppText(
-              tag,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: AppColors.labelTextColor,
-            ),
-          ),
-        if (trailing != null)
-          IconButton(
-            onPressed: () {
-              // TODO: copy / call action
-            },
-            icon: Icon(trailing, size: 18, color: AppColors.labelTextColor),
-          ),
       ],
     );
   }
 
-  // ==================== REGISTERED DEVICE ====================
-  Widget _buildDeviceCard(BuildContext context) {
+  // ---- Registered device (its own async, doesn't block the rest) ----
+  Widget _buildDeviceCard(BuildContext context, WidgetRef ref) {
+    final deviceAsync = ref.watch(deviceViewModelProvider);
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -443,99 +332,115 @@ class ProfileScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: AppColors.borderColor),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              AppText("Registered Device", fontSize: 15, fontWeight: FontWeight.w700),
-              _buildDotChip(
-                _deviceBound ? "Bound & Active" : "Not Bound",
-                _deviceBound ? AppColors.successColor : AppColors.errorColor,
-              ),
-            ],
-          ),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(14),
+      child: deviceAsync.when(
+        loading: () => const _DeviceCardSkeleton(),
+        error: (error, _) => Row(
+          children: [
+            const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.errorColor),
+            const SizedBox(width: 8),
+            Expanded(child: CaptionText("Couldn't load device info")),
+            TextButton(
+              onPressed: () => ref.read(deviceViewModelProvider.notifier).refresh(),
+              child: const AppText("Retry", fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primaryColor),
             ),
-            child: Row(
-              children: [
-                Container(
-                  height: 40,
-                  width: 40,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    color: AppColors.whiteColor,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: const Icon(
-                    Icons.phone_iphone_rounded,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AppText(_deviceModel, fontSize: 14, fontWeight: FontWeight.w700),
-                      const SizedBox(height: 2),
-                      CaptionText(_deviceInfo),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              const Icon(Icons.shield_outlined, size: 14, color: AppColors.labelTextColor),
-              const SizedBox(width: 6),
-              Expanded(
-                child: CaptionText("Zero-Trust Device Binding"),
-              ),
-              TextButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, RouteNames.deviceChangeRequest);
-                },
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 10),
-                ),
-                child: AppText(
-                  "Request Change",
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
+        data: (status) => _buildDeviceCardContent(context, status.activeDevice),
       ),
     );
+  }
+
+  Widget _buildDeviceCardContent(BuildContext context, ActiveDeviceModel? device) {
+    final bool bound = device != null && device.status.toUpperCase() == "ACTIVE";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            AppText("Registered Device", fontSize: 15, fontWeight: FontWeight.w700),
+            _buildDotChip(
+              device == null ? "Not Registered" : (bound ? "Bound & Active" : device.status),
+              device == null ? AppColors.labelTextColor : AppColors.requestStatusColor(device.status),
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(14)),
+          child: Row(
+            children: [
+              Container(
+                height: 40,
+                width: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: AppColors.whiteColor, borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.phone_iphone_rounded, color: AppColors.primaryColor),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppText(
+                      device?.deviceModel ?? "No device registered yet",
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    CaptionText(
+                      device == null
+                          ? "Log in once to bind this handset"
+                          : "${device.platform} • Last active ${_lastActiveLabel(device.lastLoginAt)}",
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            const Icon(Icons.shield_outlined, size: 14, color: AppColors.labelTextColor),
+            const SizedBox(width: 6),
+            const Expanded(child: CaptionText("Zero-Trust Device Binding")),
+            // TextButton(
+            //   onPressed: () => Navigator.pushNamed(context, RouteNames.deviceChangeRequest),
+            //   style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10)),
+            //   child: const AppText(
+            //     "Request Change",
+            //     fontSize: 12,
+            //     fontWeight: FontWeight.w700,
+            //     color: AppColors.primaryColor,
+            //   ),
+            // ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _lastActiveLabel(DateTime? lastLoginAt) {
+    if (lastLoginAt == null) return "recently";
+    final diff = DateTime.now().difference(lastLoginAt);
+    if (diff.inMinutes < 60) return "${diff.inMinutes}m ago";
+    if (diff.inHours < 24) return "${diff.inHours}h ago";
+    return DateFormat("dd MMM").format(lastLoginAt);
   }
 
   Widget _buildDotChip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: color.withOpacity(.12),
-        borderRadius: BorderRadius.circular(20),
-      ),
+      decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            height: 6,
-            width: 6,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
+          Container(height: 6, width: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
           const SizedBox(width: 5),
           AppText(label, fontSize: 11, fontWeight: FontWeight.w700, color: color),
         ],
@@ -543,13 +448,13 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // ==================== SETTINGS LIST ====================
+  // ---- Settings list ----
   Widget _buildSettingsList(BuildContext context) {
     final items = [
       _SettingsItem(Icons.password_rounded, "Change Security PIN & Password"),
       _SettingsItem(Icons.notifications_none_rounded, "Notification & Geofence Alerts"),
       _SettingsItem(Icons.support_agent_rounded, "Help & Support Desk"),
-      _SettingsItem(Icons.info_outline_rounded, "About $_appVersion"),
+      _SettingsItem(Icons.info_outline_rounded, "About AttendEase v2.4.0"),
     ];
 
     return Container(
@@ -577,20 +482,13 @@ class ProfileScreen extends StatelessWidget {
                     children: [
                       Icon(item.icon, size: 20, color: AppColors.headlineTextColor),
                       const SizedBox(width: 14),
-                      Expanded(
-                        child: AppText(item.label, fontSize: 14, fontWeight: FontWeight.w600),
-                      ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 20,
-                        color: AppColors.placeholderColor,
-                      ),
+                      Expanded(child: AppText(item.label, fontSize: 14, fontWeight: FontWeight.w600)),
+                      const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.placeholderColor),
                     ],
                   ),
                 ),
               ),
-              if (index != items.length - 1)
-                const Divider(height: 1, indent: 16, endIndent: 16),
+              if (index != items.length - 1) const Divider(height: 1, indent: 16, endIndent: 16),
             ],
           );
         }),
@@ -598,8 +496,8 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  // ==================== SIGN OUT ====================
-  Widget _buildSignOutButton(BuildContext context) {
+  // ---- Sign out ----
+  Widget _buildSignOutButton(BuildContext context, WidgetRef ref) {
     return AppButton(
       text: "Sign Out from Device",
       icon: Icons.logout_rounded,
@@ -607,10 +505,43 @@ class ProfileScreen extends StatelessWidget {
       textColor: AppColors.errorColor,
       iconColor: AppColors.errorColor,
       boxShadow: const [],
-      onTap: () {
-        // TODO: show confirm dialog -> AuthViewModel.signOut(context)
-      },
+      onTap: () => _confirmSignOut(context, ref),
     );
+  }
+
+  Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const AppText("Sign out?", fontSize: 16, fontWeight: FontWeight.w700),
+        content: const AppText(
+          "You'll need to sign in again to mark attendance on this device.",
+          fontSize: 13,
+          color: AppColors.labelTextColor,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const AppText("Cancel", fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const AppText(
+              "Sign Out",
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.errorColor,
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    await ref.read(authViewModelProvider.notifier).logout();
+    if (!context.mounted) return;
+    Navigator.of(context).pushNamedAndRemoveUntil(RouteNames.login, (route) => false);
   }
 }
 
@@ -618,4 +549,180 @@ class _SettingsItem {
   final IconData icon;
   final String label;
   const _SettingsItem(this.icon, this.label);
+}
+
+// ==================== SKELETON (shimmer) ====================
+class _ProfileSkeleton extends StatelessWidget {
+  const _ProfileSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: EdgeInsets.zero,
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 28),
+          decoration: const BoxDecoration(
+            gradient: AppColors.heroGradient,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(28),
+              bottomRight: Radius.circular(28),
+            ),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _shimmerCircle(38, baseColor: Colors.white.withOpacity(.25)),
+                  _shimmerCircle(38, baseColor: Colors.white.withOpacity(.25)),
+                ],
+              ),
+              const SizedBox(height: 18),
+              _shimmerCircle(92, baseColor: Colors.white.withOpacity(.3)),
+              const SizedBox(height: 16),
+              AppSkeletonBox(height: 18, width: 160, borderRadius: 8),
+              const SizedBox(height: 8),
+              AppSkeletonBox(height: 12, width: 200, borderRadius: 6),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+          child: Column(
+            children: [
+              AppSkeletonBox(height: 62, borderRadius: 16),
+              const SizedBox(height: 16),
+              _cardSkeleton(rows: 4),
+              const SizedBox(height: 16),
+              _cardSkeleton(rows: 2),
+              const SizedBox(height: 16),
+              AppSkeletonBox(height: 220, borderRadius: 18),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _shimmerCircle(double size, {required Color baseColor}) {
+    return Container(height: size, width: size, decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle));
+  }
+
+  Widget _cardSkeleton({required int rows}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.cardBgColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.borderColor),
+      ),
+      child: Column(
+        children: List.generate(rows, (i) {
+          return Padding(
+            padding: EdgeInsets.only(bottom: i == rows - 1 ? 0 : 18),
+            child: Row(
+              children: [
+                AppSkeletonBox(height: 38, width: 38, borderRadius: 10),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppSkeletonBox(height: 10, width: 80, borderRadius: 6),
+                      const SizedBox(height: 6),
+                      AppSkeletonBox(height: 14, width: 150, borderRadius: 6),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+class _DeviceCardSkeleton extends StatelessWidget {
+  const _DeviceCardSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            AppSkeletonBox(height: 15, width: 130, borderRadius: 6),
+            AppSkeletonBox(height: 20, width: 80, borderRadius: 20),
+          ],
+        ),
+        const SizedBox(height: 14),
+        AppSkeletonBox(height: 64, borderRadius: 14),
+      ],
+    );
+  }
+}
+
+// ==================== ERROR STATE ====================
+class _ProfileErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+  const _ProfileErrorState({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: [
+        SizedBox(
+          height: 500,
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    height: 64,
+                    width: 64,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.errorColor.withOpacity(.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.wifi_off_rounded, size: 28, color: AppColors.errorColor),
+                  ),
+                  const SizedBox(height: 16),
+                  AppText(
+                    "Couldn't load your profile",
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 6),
+                  AppText(
+                    message,
+                    fontSize: 13,
+                    color: AppColors.labelTextColor,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: 160,
+                    child: AppButton(text: "Retry", icon: Icons.refresh_rounded, onTap: onRetry),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

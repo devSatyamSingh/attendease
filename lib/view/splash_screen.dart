@@ -1,17 +1,31 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/routes/route_name.dart';
+import '../viewmodel/auth_viewmodel.dart';
 import '../widget/app_colors.dart';
 import '../widget/app_text.dart';
 
-class SplashScreen extends StatefulWidget {
+/// AttendEase — Splash screen.
+///
+/// Timing is driven by ONE controller (`_progressController`) running
+/// for exactly `_splashDuration`. The left→right dot on the track is
+/// literally that controller's value, so it's guaranteed to reach the
+/// far right the same moment the controller completes — which is also
+/// the moment we resolve [sessionCheckProvider] and navigate.
+///
+/// [sessionCheckProvider] reads `StorageService().isLoggedIn()` — set
+/// true the moment AuthRepository.login() succeeds, cleared on
+/// logout/forced-logout — so this is a real "is there a session"
+/// check, not a fixed timer pretending to be one.
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
   static const _splashDuration = Duration(seconds: 4);
   static const _entranceDuration = Duration(milliseconds: 750);
@@ -40,48 +54,58 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _pulseController;
   late final Animation<double> _pulseScale;
 
+  bool _navigated = false;
+
   @override
   void initState() {
     super.initState();
+
+    // Kick the session check off immediately so it's almost certainly
+    // resolved well before the 4s splash duration finishes.
+    ref.read(sessionCheckProvider);
 
     _colorTimer = Timer.periodic(const Duration(milliseconds: 700), (timer) {
       if (!mounted) return;
       setState(() => _colorIndex = (_colorIndex + 1) % _loaderColors.length);
     });
 
-    _entranceController =
-        AnimationController(vsync: this, duration: _entranceDuration);
-    _entranceScale = CurvedAnimation(
-      parent: _entranceController,
-      curve: Curves.easeOutBack,
-    );
+    _entranceController = AnimationController(vsync: this, duration: _entranceDuration);
+    _entranceScale = CurvedAnimation(parent: _entranceController, curve: Curves.easeOutBack);
     _entranceOpacity = CurvedAnimation(
       parent: _entranceController,
       curve: const Interval(0, .6, curve: Curves.easeOut),
     );
 
-    _pulseController =
-    AnimationController(vsync: this, duration: _pulseDuration)
+    _pulseController = AnimationController(vsync: this, duration: _pulseDuration)
       ..repeat(reverse: true);
     _pulseScale = Tween<double>(begin: 1, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _progressController =
-    AnimationController(vsync: this, duration: _splashDuration)
+    _progressController = AnimationController(vsync: this, duration: _splashDuration)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) _navigateNext();
       });
 
-    // Logo/title pop in immediately; the full-length progress run starts
-    // in the same frame so it always finishes exactly at _splashDuration.
     _entranceController.forward();
     _progressController.forward();
   }
 
-  void _navigateNext() {
+  Future<void> _navigateNext() async {
+    if (!mounted || _navigated) return;
+    _navigated = true;
+
+    bool isLoggedIn = false;
+    try {
+      isLoggedIn = await ref.read(sessionCheckProvider.future);
+    } catch (_) {
+      isLoggedIn = false; // corrupt/unavailable storage -> safest is Login
+    }
+
     if (!mounted) return;
-    Navigator.of(context).pushReplacementNamed(RouteNames.login);
+    Navigator.of(context).pushReplacementNamed(
+      isLoggedIn ? RouteNames.bottombar : RouteNames.login,
+    );
   }
 
   @override
@@ -96,7 +120,6 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
-    // ✅ Logo size chhota kiya: 140 -> 100
     final iconSize = size.width * 0.24 > 100 ? 100.0 : size.width * 0.24;
 
     return Scaffold(
@@ -113,12 +136,8 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   children: [
                     const Spacer(flex: 4),
-
                     _buildAnimatedBrandBlock(size, iconSize),
-
-                    // ✅ Gap kam kiya: flex 3 -> flex 1
                     const Spacer(flex: 1),
-
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 300),
                       transitionBuilder: (child, animation) =>
@@ -129,16 +148,12 @@ class _SplashScreenState extends State<SplashScreen>
                         width: 34,
                         child: CircularProgressIndicator(
                           strokeWidth: 2.6,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            _loaderColors[_colorIndex],
-                          ),
+                          valueColor: AlwaysStoppedAnimation<Color>(_loaderColors[_colorIndex]),
                         ),
                       ),
                     ),
                     const SizedBox(height: 18),
-
                     _AnimatedProgressTrack(controller: _progressController),
-
                     const Spacer(flex: 3),
                     const _ProtocolBadge(),
                     const SizedBox(height: 9),
@@ -174,10 +189,7 @@ class _SplashScreenState extends State<SplashScreen>
         final entranceValue = _entranceScale.value.clamp(0.0, 1.4);
         return Opacity(
           opacity: _entranceOpacity.value,
-          child: Transform.scale(
-            scale: entranceValue * _pulseScale.value,
-            child: child,
-          ),
+          child: Transform.scale(scale: entranceValue * _pulseScale.value, child: child),
         );
       },
       child: Column(
@@ -221,53 +233,30 @@ class _SplashScreenState extends State<SplashScreen>
 
 class _BrandIcon extends StatelessWidget {
   final double size;
-  final bool showStatusDot;
-  const _BrandIcon({required this.size, this.showStatusDot = false});
+  const _BrandIcon({required this.size});
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Container(
-          height: size,
-          width: size,
-          padding: EdgeInsets.all(size * 0.1),
-          decoration: BoxDecoration(
-            color: AppColors.whiteColor,
-            borderRadius: BorderRadius.circular(size * 0.26),
-            border: Border.all(color: AppColors.whiteColor.withOpacity(.6)),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.blackColor.withOpacity(.25),
-                blurRadius: 10,
-              ),
-            ],
-          ),
-          child: Image.asset(
-            "assets/icons/icon.png",
-            fit: BoxFit.contain,
-          ),
-        ),
-        if (showStatusDot)
-          Positioned(
-            top: -2,
-            right: -2,
-            child: Container(
-              height: 16,
-              width: 16,
-              decoration: BoxDecoration(
-                color: AppColors.workingColor,
-                shape: BoxShape.circle,
-                border: Border.all(color: AppColors.whiteColor, width: 2.5),
-              ),
-            ),
-          ),
-      ],
+    return Container(
+      height: size,
+      width: size,
+      padding: EdgeInsets.all(size * 0.1),
+      decoration: BoxDecoration(
+        color: AppColors.whiteColor,
+        borderRadius: BorderRadius.circular(size * 0.26),
+        border: Border.all(color: AppColors.whiteColor.withOpacity(.6)),
+        boxShadow: [
+          BoxShadow(color: AppColors.blackColor.withOpacity(.25), blurRadius: 10),
+        ],
+      ),
+      child: Image.asset("assets/icons/icon.png", fit: BoxFit.contain),
     );
   }
 }
 
+/// Left -> right progress dot. `controller.value` (0 -> 1) IS the
+/// position — no independent timer, so it can never fall out of sync
+/// with the splash duration driving it.
 class _AnimatedProgressTrack extends StatelessWidget {
   final AnimationController controller;
   const _AnimatedProgressTrack({required this.controller});
@@ -299,10 +288,7 @@ class _AnimatedProgressTrack extends StatelessWidget {
             child: Container(
               height: 8,
               width: 8,
-              decoration: const BoxDecoration(
-                color: AppColors.workingColor,
-                shape: BoxShape.circle,
-              ),
+              decoration: const BoxDecoration(color: AppColors.workingColor, shape: BoxShape.circle),
             ),
           );
         },

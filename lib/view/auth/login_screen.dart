@@ -1,30 +1,37 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/errors/failure.dart';
 import '../../core/routes/route_name.dart';
+import '../../model/login_response_model.dart';
+import '../../services/device_info_service.dart';
+import '../../utils/app_utils.dart';
+import '../../utils/validators.dart';
+import '../../viewmodel/auth_viewmodel.dart';
 import '../../widget/app_button.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 import '../../widget/app_textfield.dart';
 
-class LoginScreen extends StatefulWidget {
+
+class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _employeeIdController = TextEditingController();
   final _passwordController = TextEditingController();
 
   bool _obscurePassword = true;
-  bool _isLoading = false;
+  bool _buildingDeviceInfo = false;
 
   @override
   void initState() {
     super.initState();
-    // Status bar icons white — gradient header ke upar visible ho
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -43,17 +50,30 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    AppUtils.hideKeyboard(context);
 
-    setState(() => _isLoading = true);
-    try {
+    setState(() => _buildingDeviceInfo = true);
+    final device = await DeviceInfoService().buildDeviceModel();
+    if (!mounted) return;
+    setState(() => _buildingDeviceInfo = false);
 
-      await Future.delayed(const Duration(seconds: 2));
+    final success = await ref.read(authViewModelProvider.notifier).login(
+      loginId: _employeeIdController.text.trim(),
+      password: _passwordController.text,
+      device: device,
+    );
 
-      if (!mounted) return;
+    if (!mounted || !success) return;
 
+    final loginResponse = ref.read(authViewModelProvider).value;
+    final deviceStatus = loginResponse?.deviceStatus.toUpperCase() ?? "ACTIVE";
+
+    if (deviceStatus == "PENDING") {
+      // Same device rules as Profile's "Request Change" flow — a
+      // pending device request blocks the dashboard until approved.
+      Navigator.of(context).pushReplacementNamed(RouteNames.deviceChangeRequest);
+    } else {
       Navigator.of(context).pushReplacementNamed(RouteNames.bottombar);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -63,37 +83,39 @@ class _LoginScreenState extends State<LoginScreen> {
     final topPadding = MediaQuery.paddingOf(context).top;
     final headerIconSize = size.width * 0.2 > 92 ? 92.0 : size.width * 0.2;
 
+    final authState = ref.watch(authViewModelProvider);
+    final isLoading = authState.isLoading || _buildingDeviceInfo;
+
+    // Any login failure shows via the app's shared snackbar helper —
+    // same look everywhere else in the app uses AppUtils.showErrorSnackbar.
+    ref.listen<AsyncValue<LoginResponseModel?>>(authViewModelProvider, (previous, next) {
+      next.whenOrNull(
+        error: (error, _) {
+          final message = error is Failure ? error.message : "Something went wrong. Please try again.";
+          AppUtils.showErrorSnackbar(context, message);
+        },
+      );
+    });
+
     return Scaffold(
       backgroundColor: AppColors.whiteColor,
       body: Stack(
         children: [
-          // ── Gradient header (status bar ke peeche tak extend) ──
           Container(
             width: double.infinity,
             height: topPadding + 280,
-            decoration: const BoxDecoration(
-              gradient: AppColors.primaryGradient,
-            ),
+            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
           ),
-
-          // ── Main scrollable content ──
           SingleChildScrollView(
             child: ConstrainedBox(
-              constraints: BoxConstraints(
-                minHeight: size.height,
-              ),
+              constraints: BoxConstraints(minHeight: size.height),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 480),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      _Header(
-                        topPadding: topPadding,
-                        iconSize: headerIconSize,
-                      ),
-
-                      // ── Form card overlapped on gradient ──
+                      _Header(topPadding: topPadding, iconSize: headerIconSize),
                       Transform.translate(
                         offset: const Offset(0, -40),
                         child: Container(
@@ -112,22 +134,15 @@ class _LoginScreenState extends State<LoginScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: const [
-                                    HeadlineText(
-                                      "Welcome Back",
-                                      fontSize: 24,
-                                    ),
+                                    HeadlineText("Welcome Back", fontSize: 24),
                                     _GeofenceBadge(),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                const CaptionText(
-                                  "Sign in to mark your daily attendance",
-                                ),
+                                const CaptionText("Sign in to mark your daily attendance"),
                                 const SizedBox(height: 24),
-
                                 const AppText(
                                   "Employee ID or Work Email",
                                   fontSize: 13,
@@ -138,6 +153,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   controller: _employeeIdController,
                                   hintText: "EMP-48209",
                                   keyboardType: TextInputType.text,
+                                  enabled: !isLoading,
                                   prefixIcon: const Icon(
                                     Icons.badge_outlined,
                                     color: AppColors.labelTextColor,
@@ -145,9 +161,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                   suffixIcon: ValueListenableBuilder(
                                     valueListenable: _employeeIdController,
                                     builder: (context, value, _) {
-                                      if (value.text.trim().isEmpty) {
-                                        return const SizedBox.shrink();
-                                      }
+                                      if (value.text.trim().isEmpty) return const SizedBox.shrink();
                                       return const Icon(
                                         Icons.check_circle_rounded,
                                         color: AppColors.successColor,
@@ -155,16 +169,9 @@ class _LoginScreenState extends State<LoginScreen> {
                                       );
                                     },
                                   ),
-                                  validator: (value) {
-                                    if (value == null ||
-                                        value.trim().isEmpty) {
-                                      return "Employee ID or email is required";
-                                    }
-                                    return null;
-                                  },
+                                  validator: Validators.employeeIdOrEmail,
                                 ),
                                 const SizedBox(height: 18),
-
                                 const AppText(
                                   "Master Password",
                                   fontSize: 13,
@@ -174,6 +181,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                 AppTextField(
                                   controller: _passwordController,
                                   obscureText: _obscurePassword,
+                                  enabled: !isLoading,
                                   prefixIcon: const Icon(
                                     Icons.lock_outline_rounded,
                                     color: AppColors.labelTextColor,
@@ -185,34 +193,23 @@ class _LoginScreenState extends State<LoginScreen> {
                                           : Icons.visibility_outlined,
                                       color: AppColors.labelTextColor,
                                     ),
-                                    onPressed: () => setState(
-                                          () => _obscurePassword =
-                                      !_obscurePassword,
-                                    ),
+                                    onPressed: () =>
+                                        setState(() => _obscurePassword = !_obscurePassword),
                                   ),
-                                  validator: (value) {
-                                    if (value == null || value.isEmpty) {
-                                      return "Password is required";
-                                    }
-                                    return null;
-                                  },
+                                  validator: Validators.password,
                                 ),
                                 const SizedBox(height: 20),
-
                                 AppButton(
                                   text: "Clock In / Login",
                                   icon: Icons.fingerprint_rounded,
-                                  loading: _isLoading,
-                                  onTap: _handleLogin,
+                                  loading: isLoading,
+                                  onTap: isLoading ? null : _handleLogin,
                                 ),
                                 const SizedBox(height: 22),
-
                                 const _InfoBanner(
-                                  text:
-                                  "This handset will be bound to your biometrics profile",
+                                  text: "This handset will be bound to your biometrics profile",
                                 ),
                                 const SizedBox(height: 20),
-
                                 Center(
                                   child: Column(
                                     children: [
@@ -256,9 +253,6 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// HEADER (No bottom padding — form overlap handle karega)
-// ─────────────────────────────────────────────────────────────
 class _Header extends StatelessWidget {
   final double topPadding;
   final double iconSize;
@@ -269,13 +263,8 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.only(
-        top: topPadding + 30,
-        bottom: 80, // sirf itna — form card -40 offset se overlap karega
-      ),
-      decoration: const BoxDecoration(
-        gradient: AppColors.primaryGradient,
-      ),
+      padding: EdgeInsets.only(top: topPadding + 30, bottom: 80),
+      decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
       child: Column(
         children: [
           Stack(
@@ -286,17 +275,12 @@ class _Header extends StatelessWidget {
                 width: iconSize,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [
-                      AppColors.primaryColor.withOpacity(.9),
-                      AppColors.primaryDark,
-                    ],
+                    colors: [AppColors.primaryColor.withOpacity(.9), AppColors.primaryDark],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(iconSize * 0.26),
-                  border: Border.all(
-                    color: AppColors.whiteColor.withOpacity(.3),
-                  ),
+                  border: Border.all(color: AppColors.whiteColor.withOpacity(.3)),
                 ),
                 child: Icon(
                   Icons.verified_rounded,
@@ -313,10 +297,7 @@ class _Header extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: AppColors.workingColor,
                     shape: BoxShape.circle,
-                    border: Border.all(
-                      color: AppColors.whiteColor,
-                      width: 2.5,
-                    ),
+                    border: Border.all(color: AppColors.whiteColor, width: 2.5),
                   ),
                 ),
               ),
@@ -343,9 +324,6 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// GEOFENCE BADGE
-// ─────────────────────────────────────────────────────────────
 class _GeofenceBadge extends StatelessWidget {
   const _GeofenceBadge();
 
@@ -363,10 +341,7 @@ class _GeofenceBadge extends StatelessWidget {
           Container(
             height: 6,
             width: 6,
-            decoration: const BoxDecoration(
-              color: AppColors.successColor,
-              shape: BoxShape.circle,
-            ),
+            decoration: const BoxDecoration(color: AppColors.successColor, shape: BoxShape.circle),
           ),
           const SizedBox(width: 6),
           const AppText(
@@ -381,12 +356,8 @@ class _GeofenceBadge extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// INFO BANNER
-// ─────────────────────────────────────────────────────────────
 class _InfoBanner extends StatelessWidget {
   final String text;
-
   const _InfoBanner({required this.text});
 
   @override
@@ -400,11 +371,7 @@ class _InfoBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.phonelink_lock_outlined,
-            size: 16,
-            color: AppColors.labelTextColor,
-          ),
+          const Icon(Icons.phonelink_lock_outlined, size: 16, color: AppColors.labelTextColor),
           const SizedBox(width: 10),
           Expanded(
             child: AppText(
