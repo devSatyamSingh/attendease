@@ -12,6 +12,7 @@ import '../../widget/app_button.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
+import 'holiday_screen.dart';
 
 /// AttendEase — Profile screen.
 /// Watches [profileViewModelProvider] (the real `GET /profile` call)
@@ -71,7 +72,7 @@ class _ProfileContent extends ConsumerWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHistoryLink(context),
+              _buildHolidayCard(context),
               const SizedBox(height: 16),
               _buildEmploymentDetailsCard(profile),
               const SizedBox(height: 16),
@@ -111,25 +112,25 @@ class _ProfileContent extends ConsumerWidget {
       child: Column(
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               _buildCircleIconButton(
                 icon: Icons.arrow_back_rounded,
                 onTap: () => Navigator.maybePop(context),
               ),
-              AppText("Profile", fontSize: 18, fontWeight: FontWeight.w700, color: AppColors.whiteColor),
-              _buildCircleIconButton(
-                icon: Icons.edit_rounded,
-                onTap: () {
-                  // TODO: Navigator.pushNamed(context, AppRoutes.editProfile);
-                },
-              ),
+              SizedBox(width: 15,),
+              AppText("Profile", fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.whiteColor),
+              // _buildCircleIconButton(
+              //   icon: Icons.edit_rounded,
+              //   onTap: () {
+              //     // TODO: Navigator.pushNamed(context, AppRoutes.editProfile);
+              //   },
+              // ),
             ],
           ),
           const SizedBox(height: 18),
           Container(
-            height: 92,
-            width: 92,
+            height: 80,
+            width: 80,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
@@ -139,7 +140,7 @@ class _ProfileContent extends ConsumerWidget {
             child: AppText(
               initials,
               fontSize: 30,
-              fontWeight: FontWeight.w700,
+              fontWeight: FontWeight.w600,
               color: AppColors.whiteColor,
             ),
           ),
@@ -204,12 +205,14 @@ class _ProfileContent extends ConsumerWidget {
     );
   }
 
-  // ---- History link ----
-  Widget _buildHistoryLink(BuildContext context) {
+
+  Widget _buildHolidayCard(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () {
-        // TODO: Navigator.pushNamed(context, AppRoutes.history);
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const HolidaysScreen()),
+        );
       },
       child: Container(
         width: double.infinity,
@@ -226,11 +229,18 @@ class _ProfileContent extends ConsumerWidget {
               width: 38,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(11)),
-              child: const Icon(Icons.history_rounded, size: 18, color: AppColors.primaryColor),
+              child: const Icon(Icons.celebration_rounded, size: 18, color: AppColors.primaryColor),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: AppText("View Attendance History", fontSize: 14, fontWeight: FontWeight.w700),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppText("Company Holidays", fontSize: 14, fontWeight: FontWeight.w700),
+                  const SizedBox(height: 2),
+                  CaptionText("View this year's holiday calendar"),
+                ],
+              ),
             ),
             const Icon(Icons.chevron_right_rounded, color: AppColors.placeholderColor),
           ],
@@ -238,7 +248,6 @@ class _ProfileContent extends ConsumerWidget {
       ),
     );
   }
-
   // ---- Employment details (real ProfileModel fields) ----
   Widget _buildEmploymentDetailsCard(ProfileModel profile) {
     return Container(

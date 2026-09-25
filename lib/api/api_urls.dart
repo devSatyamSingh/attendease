@@ -19,20 +19,19 @@ class ApiUrls {
   static const String deviceChangeRequest = "/devices/change-request";
 
   // ---------------- ATTENDANCE ----------------
+  static const String attendanceCheckIn = "/attendance/check-in";
+  static const String attendanceCheckOut = "/attendance/check-out";
   static const String attendanceToday = "/attendance/today";
-  static const String checkIn = "/attendance/check-in";
-  static const String checkOut = "/attendance/check-out";
   static const String attendanceHistory = "/attendance/history";
-  static const String attendanceMonthlySummary = "/attendance/monthly-summary";
-  static String attendanceDetail(int id) => "/attendance/$id";
 
   // ---------------- LEAVE ----------------
   static const String leaveTypes = "/leave/types";
   static const String leaveBalance = "/leave/balance";
+  static const String leaveRequests = "/leave/requests";
   static const String leaveHistory = "/leave/history";
-  static const String applyLeave = "/leave/requests";
-  static String leaveRequestDetail(int id) => "/leave/requests/$id";
-  static String cancelLeaveRequest(int id) => "/leave/requests/$id/cancel";
+
+  // ---------------- HOLIDAY ----------------
+  static const String holidays = "/holidays";
 
   // ---------------- PROFILE ----------------
   static const String profile = "/profile";

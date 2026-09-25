@@ -82,8 +82,6 @@ class AppText extends StatelessWidget {
   }
 }
 
-/// Quick-use preset for screen titles / hero numbers
-/// (e.g. "Good Morning, Rahul", "8h 57m" worked-hours number).
 class HeadlineText extends StatelessWidget {
   final String text;
   final double fontSize;

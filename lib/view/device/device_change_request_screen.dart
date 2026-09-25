@@ -99,7 +99,7 @@ class _DeviceChangeRequestScreenState extends ConsumerState<DeviceChangeRequestS
                   AppText(
                     "New Device Detected",
                     fontSize: 24,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w500,
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 10),
