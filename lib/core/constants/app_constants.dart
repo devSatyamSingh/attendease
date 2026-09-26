@@ -20,10 +20,6 @@ class AppConstants {
   static const Duration debounceDuration = Duration(milliseconds: 500);
   static const Duration pageTransitionDuration = Duration(milliseconds: 300);
 
-  // ---------------- ATTENDANCE / GEOFENCE ----------------
-  /// Client-side early warning only — the backend independently enforces
-  /// its own GPS accuracy threshold (GPS_ACCURACY_LOW). Never rely on
-  /// this constant alone to decide whether attendance will be accepted.
   static const double gpsAccuracyThresholdMeters = 50.0;
   static const int defaultDailyGoalHours = 8;
 

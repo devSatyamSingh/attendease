@@ -4,15 +4,13 @@ import '../core/errors/failure.dart';
 import '../model/leave_model.dart';
 import '../repo/leave_repo.dart';
 
-final leaveRepositoryProvider = Provider<LeaveRepository>((ref) => LeaveRepository());
-
-// ==================== LEAVE TYPES ====================
+final leaveRepositoryProvider = Provider<LeaveRepository>(
+  (ref) => LeaveRepository(),
+);
 
 final leaveTypesProvider = FutureProvider<List<LeaveTypeModel>>((ref) {
   return ref.read(leaveRepositoryProvider).getLeaveTypes();
 });
-
-// ==================== BALANCE (per year) ====================
 
 class LeaveBalanceViewModel extends AsyncNotifier<List<LeaveBalanceModel>> {
   int _year = DateTime.now().year;
@@ -26,27 +24,35 @@ class LeaveBalanceViewModel extends AsyncNotifier<List<LeaveBalanceModel>> {
   Future<void> loadYear(int year) async {
     _year = year;
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => ref.read(leaveRepositoryProvider).getBalance(year: _year));
+    state = await AsyncValue.guard(
+      () => ref.read(leaveRepositoryProvider).getBalance(year: _year),
+    );
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(() => ref.read(leaveRepositoryProvider).getBalance(year: _year));
+    state = await AsyncValue.guard(
+      () => ref.read(leaveRepositoryProvider).getBalance(year: _year),
+    );
   }
 }
 
 final leaveBalanceViewModelProvider =
-AsyncNotifierProvider<LeaveBalanceViewModel, List<LeaveBalanceModel>>(LeaveBalanceViewModel.new);
+    AsyncNotifierProvider<LeaveBalanceViewModel, List<LeaveBalanceModel>>(
+      LeaveBalanceViewModel.new,
+    );
 
 // ==================== RECENT REQUESTS (Leaves screen preview) ====================
 
-final recentLeaveRequestsProvider = FutureProvider<List<LeaveRequestModel>>((ref) async {
-  final response = await ref.read(leaveRepositoryProvider).getHistory(page: 1, limit: 4);
+final recentLeaveRequestsProvider = FutureProvider<List<LeaveRequestModel>>((
+  ref,
+) async {
+  final response = await ref
+      .read(leaveRepositoryProvider)
+      .getHistory(page: 1, limit: 4);
   return response.items;
 });
 
-/// One lightweight call per status just to read `pagination.total` — used
-/// for the filter-chip counts on the History screen (no dummy numbers).
 final leaveStatusCountsProvider = FutureProvider<Map<String, int>>((ref) async {
   final repo = ref.read(leaveRepositoryProvider);
   final results = await Future.wait([
@@ -60,8 +66,6 @@ final leaveStatusCountsProvider = FutureProvider<Map<String, int>>((ref) async {
     "APPROVED": results[2].pagination.total,
   };
 });
-
-// ==================== PAGINATED + FILTERED HISTORY ====================
 
 class LeaveHistoryState {
   final List<LeaveRequestModel> items;
@@ -118,8 +122,9 @@ class LeaveHistoryViewModel extends Notifier<LeaveHistoryState> {
   Future<void> loadFirstPage({String? status}) async {
     state = LeaveHistoryState(isLoading: true, statusFilter: status);
     try {
-      final response =
-      await ref.read(leaveRepositoryProvider).getHistory(page: 1, limit: _pageSize, status: status);
+      final response = await ref
+          .read(leaveRepositoryProvider)
+          .getHistory(page: 1, limit: _pageSize, status: status);
       state = LeaveHistoryState(
         items: response.items,
         page: response.pagination.page,
@@ -129,7 +134,10 @@ class LeaveHistoryViewModel extends Notifier<LeaveHistoryState> {
     } on Failure catch (f) {
       state = LeaveHistoryState(statusFilter: status, failure: f);
     } catch (e) {
-      state = LeaveHistoryState(statusFilter: status, failure: UnknownFailure(message: e.toString()));
+      state = LeaveHistoryState(
+        statusFilter: status,
+        failure: UnknownFailure(message: e.toString()),
+      );
     }
   }
 
@@ -139,11 +147,13 @@ class LeaveHistoryViewModel extends Notifier<LeaveHistoryState> {
     state = state.copyWith(isLoadingMore: true, clearFailure: true);
     try {
       final nextPage = state.page + 1;
-      final response = await ref.read(leaveRepositoryProvider).getHistory(
-        page: nextPage,
-        limit: _pageSize,
-        status: state.statusFilter,
-      );
+      final response = await ref
+          .read(leaveRepositoryProvider)
+          .getHistory(
+            page: nextPage,
+            limit: _pageSize,
+            status: state.statusFilter,
+          );
       state = state.copyWith(
         items: [...state.items, ...response.items],
         page: response.pagination.page,
@@ -153,7 +163,10 @@ class LeaveHistoryViewModel extends Notifier<LeaveHistoryState> {
     } on Failure catch (f) {
       state = state.copyWith(isLoadingMore: false, failure: f);
     } catch (e) {
-      state = state.copyWith(isLoadingMore: false, failure: UnknownFailure(message: e.toString()));
+      state = state.copyWith(
+        isLoadingMore: false,
+        failure: UnknownFailure(message: e.toString()),
+      );
     }
   }
 
@@ -163,7 +176,9 @@ class LeaveHistoryViewModel extends Notifier<LeaveHistoryState> {
 }
 
 final leaveHistoryViewModelProvider =
-NotifierProvider<LeaveHistoryViewModel, LeaveHistoryState>(LeaveHistoryViewModel.new);
+    NotifierProvider<LeaveHistoryViewModel, LeaveHistoryState>(
+      LeaveHistoryViewModel.new,
+    );
 
 // ==================== APPLY LEAVE (submit action) ====================
 
@@ -171,8 +186,6 @@ class ApplyLeaveViewModel extends AsyncNotifier<void> {
   @override
   FutureOr<void> build() {}
 
-  /// Returns true on success. On false, read
-  /// `ref.watch(applyLeaveViewModelProvider).error` for the message.
   Future<bool> submit({
     required int leaveTypeId,
     required DateTime startDate,
@@ -183,22 +196,25 @@ class ApplyLeaveViewModel extends AsyncNotifier<void> {
     state = const AsyncValue.loading();
 
     final result = await AsyncValue.guard(() {
-      return ref.read(leaveRepositoryProvider).applyLeave(
-        leaveTypeId: leaveTypeId,
-        startDate: startDate,
-        endDate: endDate,
-        leaveDurationType: leaveDurationType,
-        reason: reason,
-      );
+      return ref
+          .read(leaveRepositoryProvider)
+          .applyLeave(
+            leaveTypeId: leaveTypeId,
+            startDate: startDate,
+            endDate: endDate,
+            leaveDurationType: leaveDurationType,
+            reason: reason,
+          );
     });
 
     state = result.hasError
-        ? AsyncValue.error(result.error!, result.stackTrace ?? StackTrace.current)
+        ? AsyncValue.error(
+            result.error!,
+            result.stackTrace ?? StackTrace.current,
+          )
         : const AsyncValue.data(null);
 
     if (!result.hasError) {
-      // Balance aur history dono jagah turant reflect ho, jaise
-      // attendance check-in/check-out ke baad karte hain.
       ref.invalidate(recentLeaveRequestsProvider);
       ref.invalidate(leaveStatusCountsProvider);
       ref.read(leaveHistoryViewModelProvider.notifier).refresh();
@@ -209,4 +225,5 @@ class ApplyLeaveViewModel extends AsyncNotifier<void> {
   }
 }
 
-final applyLeaveViewModelProvider = AsyncNotifierProvider<ApplyLeaveViewModel, void>(ApplyLeaveViewModel.new);
+final applyLeaveViewModelProvider =
+    AsyncNotifierProvider<ApplyLeaveViewModel, void>(ApplyLeaveViewModel.new);

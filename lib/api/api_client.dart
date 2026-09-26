@@ -1,15 +1,13 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import '../core/constants/app_constants.dart';
+import '../core/constants/navigator_key.dart';
+import '../core/routes/route_name.dart';
 import '../services/storage_service.dart';
+import '../utils/app_utils.dart';
 import 'api_urls.dart';
 
-/// AttendEase — singleton Dio client.
-///
-/// Never create `Dio()` anywhere else in the app — always go through
-/// `ApiClient().dio`. That's what makes token-attach, logging, and
-/// 401-refresh-and-retry work everywhere automatically, for every
-/// single request, without a repository ever thinking about it.
 class ApiClient {
   static final ApiClient _instance = ApiClient._internal();
   factory ApiClient() => _instance;
@@ -17,18 +15,29 @@ class ApiClient {
   late final Dio dio;
 
   // ------------------------------------------------------------
-  // 401-refresh concurrency guard.
-  // If 5 API calls fire at once and the token has expired, all 5 get
-  // a 401 back roughly together. Without this guard each one would
-  // independently try to refresh the token — 5 refresh calls racing
-  // each other, and the backend would likely reject 4 of them,
-  // logging the user out for no reason. Instead: the FIRST 401 starts
-  // a refresh; every other 401 that arrives while that refresh is
-  // still in flight gets queued and is automatically retried with the
-  // new token once it's ready.
+  // 401-refresh concurrency guard (unchanged from before).
   // ------------------------------------------------------------
   bool _isRefreshing = false;
   final List<Future<void> Function(String newToken)> _pendingRequests = [];
+
+  // ------------------------------------------------------------
+  // Force-logout guard. When the employee gets approved on a NEW
+  // device, this OLD device's every in-flight/next request comes back
+  // 403 DEVICE_NOT_AUTHORIZED — often several at once (dashboard,
+  // profile, leave, holidays all firing together). Without this guard
+  // each one would independently try to clear storage and navigate,
+  // firing pushNamedAndRemoveUntil() multiple times in a row.
+  // ------------------------------------------------------------
+  bool _isForceLoggingOut = false;
+
+  /// Error codes where retrying or refreshing can NEVER help — the
+  /// session is over, full stop, no matter what the access token says.
+  /// See the API error-code catalogue: these all mean "log in again".
+  static const Set<String> _fatalErrorCodes = {
+    'DEVICE_NOT_AUTHORIZED',
+    'ACCOUNT_INACTIVE',
+    'EMPLOYEE_INACTIVE',
+  };
 
   ApiClient._internal() {
     dio = Dio(
@@ -46,9 +55,6 @@ class ApiClient {
 
     dio.interceptors.addAll([
       _authInterceptor(),
-      // Logs every request/response — only in debug builds, never in
-      // a release build (keeps tokens and response bodies out of
-      // production logs).
       if (!const bool.fromEnvironment('dart.vm.product'))
         PrettyDioLogger(
           requestHeader: false,
@@ -71,18 +77,28 @@ class ApiClient {
         handler.next(options);
       },
       onError: (DioException error, handler) async {
+        final errorCode = _extractErrorCode(error);
+        final errorMessage = _extractErrorMessage(error);
+
+        // ---- Case 1: fatal — this device/account is done. ----
+        // Runs BEFORE the 401-only check below because
+        // DEVICE_NOT_AUTHORIZED actually comes back as 403, not 401 —
+        // it would never have been caught by the old-token-refresh
+        // logic at all, which is exactly why every screen was just
+        // silently failing instead of logging the employee out.
+        if (_fatalErrorCodes.contains(errorCode)) {
+          await _forceLogout(message: errorMessage);
+          return handler.next(error);
+        }
+
         final isUnauthorized = error.response?.statusCode == 401;
         final alreadyRetried = error.requestOptions.extra['retried'] == true;
 
-        // Not a 401, or we already retried this exact request once
-        // (and it STILL failed) -> stop here, let it surface as a
-        // normal Failure via handleDioError.
         if (!isUnauthorized || alreadyRetried) {
           return handler.next(error);
         }
 
-        // A refresh is already running -> queue this request instead
-        // of starting a second refresh call.
+        // ---- Case 2: expired access token — try refreshing once. ----
         if (_isRefreshing) {
           _pendingRequests.add((newToken) async {
             final retried = await _retryWithNewToken(
@@ -99,15 +115,13 @@ class ApiClient {
           final newToken = await _refreshAccessToken();
 
           if (newToken == null) {
-            // Refresh token itself is invalid/expired.
+            // Refresh token is dead too — this really is the end of
+            // the session. Same treatment as a fatal error code.
             _pendingRequests.clear();
-            // TODO: force logout — clear StorageService tokens and
-            // navigate to Login (e.g. via a global navigatorKey, since
-            // an interceptor has no BuildContext of its own).
+            await _forceLogout();
             return handler.next(error);
           }
 
-          // Replay every request that queued up while we refreshed.
           for (final callback in _pendingRequests) {
             await callback(newToken);
           }
@@ -128,13 +142,69 @@ class ApiClient {
     );
   }
 
+  String? _extractErrorCode(DioException error) {
+    final data = error.response?.data;
+    if (data is Map<String, dynamic>) {
+      final errorBlock = data['error'];
+      if (errorBlock is Map<String, dynamic>) {
+        return errorBlock['code']?.toString();
+      }
+    }
+    return null;
+  }
+
+  String? _extractErrorMessage(DioException error) {
+    final data = error.response?.data;
+    if (data is Map<String, dynamic>) {
+      final errorBlock = data['error'];
+      if (errorBlock is Map<String, dynamic>) {
+        return errorBlock['message']?.toString();
+      }
+    }
+    return null;
+  }
+
+  /// The ONE place that decides "this employee is logged out, full
+  /// stop" — clears every saved token/session value, then throws them
+  /// back to Login with the ENTIRE navigation stack wiped
+  /// (`pushNamedAndRemoveUntil`), so the back button can never return
+  /// to a screen that needs a session that no longer exists.
+  ///
+  /// Works from anywhere — Dashboard, Profile, a leave form mid-fill —
+  /// because it goes through the global `navigatorKey`, not a
+  /// BuildContext handed down from a specific screen.
+  Future<void> _forceLogout({String? message}) async {
+    if (_isForceLoggingOut) return;
+    _isForceLoggingOut = true;
+
+    await StorageService().clearSession();
+
+    final navState = navigatorKey.currentState;
+    if (navState != null) {
+      navState.pushNamedAndRemoveUntil(RouteNames.login, (route) => false);
+
+      // Wait one frame so the Login screen's own Scaffold exists
+      // before we try to show a SnackBar on top of it.
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        final ctx = navigatorKey.currentContext;
+        if (ctx != null) {
+          AppUtils.showErrorSnackbar(
+            ctx,
+            message ??
+                "You've been logged out because this device is no longer authorized.",
+          );
+        }
+      });
+    }
+
+    _isForceLoggingOut = false;
+  }
+
   Future<Response<dynamic>> _retryWithNewToken(
       RequestOptions options,
       String newToken,
       ) {
     options.headers["Authorization"] = "Bearer $newToken";
-    // Marks this request so a second 401 on the SAME request doesn't
-    // loop forever trying to refresh again.
     options.extra['retried'] = true;
     return dio.fetch(options);
   }
@@ -148,7 +218,8 @@ class ApiClient {
       final refreshToken = await StorageService().getRefreshToken();
       if (refreshToken == null || refreshToken.isEmpty) return null;
 
-
+      // Plain Dio instance — deliberately NOT `dio` above — so a 401 on
+      // this call doesn't re-trigger this same interceptor and loop.
       final plainDio = Dio(BaseOptions(baseUrl: ApiUrls.baseUrl));
       final response = await plainDio.post(
         ApiUrls.refreshToken,
@@ -161,8 +232,6 @@ class ApiClient {
       final newAccessToken = data['data']['access_token'] as String?;
       if (newAccessToken == null || newAccessToken.isEmpty) return null;
 
-      // Backend only rotates the access_token on refresh — the
-      // refresh_token itself stays the same, so we don't overwrite it.
       await StorageService().saveAccessToken(newAccessToken);
       return newAccessToken;
     } catch (_) {

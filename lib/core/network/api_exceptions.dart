@@ -54,7 +54,6 @@ Failure _mapBadResponse(DioException error) {
     );
   }
 
-  // No structured error body from backend — fall back to HTTP status.
   switch (statusCode) {
     case 401:
       return AuthFailure(

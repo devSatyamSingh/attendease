@@ -9,11 +9,6 @@ import '../../widget/app_colors.dart';
 import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
 
-/// AttendEase — Holidays screen.
-/// Wired to [holidayViewModelProvider] (`GET /holidays?from=&to=`),
-/// scoped to a calendar year at a time. Holidays are grouped by month
-/// and sorted chronologically; past dates are visually dimmed and the
-/// next upcoming holiday is called out at the top.
 class HolidaysScreen extends ConsumerWidget {
   const HolidaysScreen({super.key});
 

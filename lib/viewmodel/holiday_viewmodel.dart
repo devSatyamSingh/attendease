@@ -5,10 +5,6 @@ import '../repo/holiday_repo.dart';
 
 final holidayRepositoryProvider = Provider<HolidayRepository>((ref) => HolidayRepository());
 
-/// Loads the whole calendar year's holidays by default (matches the
-/// Postman example: from=2026-01-01&to=2026-12-31). `loadYear()` lets
-/// the screen switch years; `refresh()` reloads whichever year/range
-/// is currently active.
 class HolidayViewModel extends AsyncNotifier<List<HolidayModel>> {
   DateTime? _lastFrom;
   DateTime? _lastTo;
@@ -40,5 +36,4 @@ class HolidayViewModel extends AsyncNotifier<List<HolidayModel>> {
   }
 }
 
-final holidayViewModelProvider =
-AsyncNotifierProvider<HolidayViewModel, List<HolidayModel>>(HolidayViewModel.new);
+final holidayViewModelProvider = AsyncNotifierProvider<HolidayViewModel, List<HolidayModel>>(HolidayViewModel.new);

@@ -3,9 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-/// AttendEase — reusable TextFormField.
-/// Use this everywhere instead of raw TextFormField — login, apply-leave
-/// reason box, device-change reason, profile edit, etc.
+
 class AppTextField extends StatelessWidget {
   final TextEditingController? controller;
   final TextInputType? keyboardType;

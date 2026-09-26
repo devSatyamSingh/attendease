@@ -35,9 +35,6 @@ class LocationService {
         code: "GPS_PERMISSION_REQUIRED",
       );
     } catch (_) {
-      // Tunnel / basement / poor signal, or the 15s timeout hit — fall
-      // back to the last known fix instead of failing the whole
-      // check-in outright.
       final lastKnown = await Geolocator.getLastKnownPosition();
       if (lastKnown == null) {
         throw const LocationFailure(
@@ -49,7 +46,6 @@ class LocationService {
       position = lastKnown;
     }
 
-
     if (position.accuracy > AppConstants.gpsAccuracyThresholdMeters) {
       throw LocationFailure(
         message:
@@ -57,7 +53,6 @@ class LocationService {
         code: "GPS_ACCURACY_LOW",
       );
     }
-
     return position;
   }
 

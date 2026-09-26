@@ -3,7 +3,7 @@ import '../api/api_urls.dart';
 import '../core/errors/failure.dart';
 import '../model/profile_model.dart';
 
-/// AttendEase — profile repository.
+
 class ProfileRepository {
   final ApiService _apiService;
 

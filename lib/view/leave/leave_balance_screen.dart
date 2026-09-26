@@ -12,7 +12,6 @@ import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
 import 'leave_ui_helper.dart';
 
-
 class LeavesScreen extends ConsumerStatefulWidget {
   const LeavesScreen({super.key});
 
@@ -29,12 +28,18 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     final balanceAsync = ref.watch(leaveBalanceViewModelProvider);
     final recentAsync = ref.watch(recentLeaveRequestsProvider);
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    // Responsive horizontal padding: smaller on small phones, capped on tablets/web.
+    final hPad = (screenWidth * 0.045).clamp(12.0, 24.0);
+    // Responsive max content width so it stays usable on tablets/web too.
+    final maxContentWidth = screenWidth > 700 ? 520.0 : double.infinity;
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldBgColor,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
+            constraints: BoxConstraints(maxWidth: maxContentWidth),
             child: RefreshIndicator(
               color: AppColors.primaryColor,
               onRefresh: () => Future.wait([
@@ -43,26 +48,26 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                 ref.refresh(recentLeaveRequestsProvider.future),
               ]),
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 16),
                 children: [
                   _buildTopBar(context),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 14),
                   _buildSectionHeader(
                     icon: Icons.account_balance_wallet_outlined,
                     title: "Leave Balances",
                     trailing: _buildFyChip(ref),
                   ),
-                  const SizedBox(height: 14),
-                  _buildBalanceSection(typesAsync, balanceAsync),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 10),
+                  _buildBalanceSection(typesAsync, balanceAsync, screenWidth),
+                  const SizedBox(height: 20),
                   _buildQuickApplyHeader(context),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   _buildApplyButton(context),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _buildPoolStatsRow(balanceAsync),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 20),
                   _buildRecentRequestsHeader(context, recentAsync),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 10),
                   _buildRecentSection(typesAsync, recentAsync),
                 ],
               ),
@@ -81,13 +86,14 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
           onTap: () => Navigator.maybePop(context),
           customBorder: const CircleBorder(),
           child: const Padding(
-            padding: EdgeInsets.all(6),
-            child: Icon(Icons.arrow_back_rounded, color: AppColors.headlineTextColor),
+            padding: EdgeInsets.all(4),
+            child: Icon(Icons.arrow_back_rounded, size: 20, color: AppColors.headlineTextColor),
           ),
         ),
         const Expanded(
-          child: AppText("My Leaves", fontSize: 16, fontWeight: FontWeight.w600, textAlign: TextAlign.center),
+          child: AppText("My Leaves", fontSize: 14, fontWeight: FontWeight.w600, textAlign: TextAlign.center),
         ),
+        const SizedBox(width: 28), // balances the back icon so title stays centered
       ],
     );
   }
@@ -98,9 +104,9 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
       children: [
         Row(
           children: [
-            Icon(icon, size: 20, color: AppColors.headlineTextColor),
-            const SizedBox(width: 8),
-            AppText(title, fontSize: 15, fontWeight: FontWeight.w600),
+            Icon(icon, size: 17, color: AppColors.headlineTextColor),
+            const SizedBox(width: 6),
+            AppText(title, fontSize: 13, fontWeight: FontWeight.w600),
           ],
         ),
         if (trailing != null) trailing,
@@ -111,15 +117,15 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
   Widget _buildFyChip(WidgetRef ref) {
     final year = ref.read(leaveBalanceViewModelProvider.notifier).year;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(color: AppColors.fieldFillColor, borderRadius: BorderRadius.circular(20)),
-      child: AppText("FY $year", fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.labelTextColor),
+      child: AppText("FY $year", fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.labelTextColor),
     );
   }
 
   // ==================== BALANCE SECTION ====================
-  Widget _buildBalanceSection(
-      AsyncValue<List<LeaveTypeModel>> typesAsync, AsyncValue<List<LeaveBalanceModel>> balanceAsync) {
+  Widget _buildBalanceSection(AsyncValue<List<LeaveTypeModel>> typesAsync,
+      AsyncValue<List<LeaveBalanceModel>> balanceAsync, double screenWidth) {
     if (typesAsync.isLoading || balanceAsync.isLoading) {
       return const _BalanceCarouselSkeleton();
     }
@@ -138,18 +144,20 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
 
     return Column(
       children: [
-        _buildBalanceCarousel(types, balances),
-        const SizedBox(height: 12),
+        _buildBalanceCarousel(types, balances, screenWidth),
+        const SizedBox(height: 8),
         _buildPageIndicator(balances.length),
       ],
     );
   }
 
-  Widget _buildBalanceCarousel(List<LeaveTypeModel> types, List<LeaveBalanceModel> balances) {
+  Widget _buildBalanceCarousel(
+      List<LeaveTypeModel> types, List<LeaveBalanceModel> balances, double screenWidth) {
+    final cardHeight = (screenWidth * 0.38).clamp(140.0, 170.0);
     return SizedBox(
-      height: 210,
+      height: cardHeight,
       child: PageView.builder(
-        controller: PageController(viewportFraction: .88),
+        controller: PageController(viewportFraction: .95),
         itemCount: balances.length,
         onPageChanged: (i) => setState(() => _currentPage = i),
         itemBuilder: (context, index) {
@@ -158,7 +166,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
           final typeName = type.isNotEmpty ? type.first.name : "Leave";
           final code = type.isNotEmpty ? type.first.code : "";
           return Padding(
-            padding: const EdgeInsets.only(right: 12),
+            padding: const EdgeInsets.only(right: 10),
             child: _buildBalanceCard(balance, typeName, code),
           );
         },
@@ -172,10 +180,10 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     final progress = balance.allocatedDays == 0 ? 0.0 : balance.usedDays / balance.allocatedDays;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withOpacity(.06),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withOpacity(.18)),
       ),
       child: Column(
@@ -184,35 +192,36 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
-                child: AppText(typeName, fontSize: 12, fontWeight: FontWeight.w600, color: color),
+                child: AppText(typeName, fontSize: 10, fontWeight: FontWeight.w600, color: color),
               ),
               Container(
-                height: 30,
-                width: 30,
+                height: 24,
+                width: 24,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.whiteColor, borderRadius: BorderRadius.circular(9)),
-                child: Icon(icon, size: 16, color: color),
+                decoration: BoxDecoration(color: AppColors.whiteColor, borderRadius: BorderRadius.circular(7)),
+                child: Icon(icon, size: 13, color: color),
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           Expanded(
             child: Center(
-              child: SizedBox(
-                height: 118,
-                width: 118,
+              // AspectRatio forces a perfect 1:1 box regardless of the parent's
+              // constraints, so the ring is always a true circle, never an oval.
+              child: AspectRatio(
+                aspectRatio: 1,
                 child: Stack(
                   alignment: Alignment.center,
                   children: [
                     SizedBox.expand(
-                      child: CircularProgressIndicator(value: 1, strokeWidth: 9, color: color.withOpacity(.15)),
+                      child: CircularProgressIndicator(value: 1, strokeWidth: 7, color: color.withOpacity(.15)),
                     ),
                     SizedBox.expand(
                       child: CircularProgressIndicator(
                         value: progress.clamp(0, 1),
-                        strokeWidth: 9,
+                        strokeWidth: 7,
                         backgroundColor: Colors.transparent,
                         valueColor: AlwaysStoppedAnimation<Color>(color),
                         strokeCap: StrokeCap.round,
@@ -227,15 +236,16 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                               TextSpan(
                                 text: balance.usedDays.toStringAsFixed(balance.usedDays % 1 == 0 ? 0 : 1),
                                 style: const TextStyle(
-                                    fontSize: 26,
-                                    fontWeight: FontWeight.w800,
+                                    fontSize: 19,
+                                    fontWeight: FontWeight.w600,
                                     color: AppColors.headlineTextColor,
                                     fontFamily: "Poppins"),
                               ),
                               TextSpan(
-                                text: "/${balance.allocatedDays.toStringAsFixed(balance.allocatedDays % 1 == 0 ? 0 : 1)}",
+                                text:
+                                "/${balance.allocatedDays.toStringAsFixed(balance.allocatedDays % 1 == 0 ? 0 : 1)}",
                                 style: const TextStyle(
-                                    fontSize: 14,
+                                    fontSize: 11,
                                     fontWeight: FontWeight.w600,
                                     color: AppColors.labelTextColor,
                                     fontFamily: "Poppins"),
@@ -251,20 +261,20 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.hourglass_bottom_rounded, size: 14, color: color),
-                const SizedBox(width: 6),
+                Icon(Icons.hourglass_bottom_rounded, size: 12, color: color),
+                const SizedBox(width: 5),
                 AppText(
                   "${balance.remainingDays.toStringAsFixed(balance.remainingDays % 1 == 0 ? 0 : 1)} Days Left",
-                  fontSize: 12,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
                   color: color,
                 ),
               ],
@@ -283,8 +293,8 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
         return AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           margin: const EdgeInsets.symmetric(horizontal: 3),
-          height: 7,
-          width: active ? 20 : 7,
+          height: 6,
+          width: active ? 16 : 6,
           decoration: BoxDecoration(
             color: active ? AppColors.primaryColor : AppColors.borderColor,
             borderRadius: BorderRadius.circular(10),
@@ -297,14 +307,14 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
   Widget _buildEmptyBalance() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32),
+      padding: const EdgeInsets.symmetric(vertical: 24),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: const Center(
-        child: AppText("No leave balance found for this year", fontSize: 13, color: AppColors.labelTextColor),
+        child: AppText("No leave balance found for this year", fontSize: 12, color: AppColors.labelTextColor),
       ),
     );
   }
@@ -314,7 +324,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     return const Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        AppText("Quick Apply", fontSize: 17, fontWeight: FontWeight.w700),
+        AppText("Quick Apply", fontSize: 14, fontWeight: FontWeight.w600),
         CaptionText("Fast-track leave in 1 tap"),
       ],
     );
@@ -322,31 +332,31 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
 
   Widget _buildApplyButton(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(14),
       onTap: () => Navigator.pushNamed(context, RouteNames.applyLeave),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
         decoration: BoxDecoration(
           gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(14),
           boxShadow: [
-            BoxShadow(color: AppColors.primaryColor.withOpacity(.3), blurRadius: 16, offset: const Offset(0, 8)),
+            BoxShadow(color: AppColors.primaryColor.withOpacity(.3), blurRadius: 6, offset: const Offset(0, 2)),
           ],
         ),
         child: Row(
           children: [
-            const Icon(Icons.event_note_rounded, color: AppColors.whiteColor, size: 22),
-            const SizedBox(width: 12),
+            const Icon(Icons.event_note_rounded, color: AppColors.whiteColor, size: 18),
+            const SizedBox(width: 10),
             const Expanded(
-              child: AppText("Apply for Leave", fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.whiteColor),
+              child: AppText("Apply for Leave", fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.whiteColor),
             ),
             Container(
-              height: 32,
-              width: 32,
+              height: 26,
+              width: 26,
               alignment: Alignment.center,
               decoration: BoxDecoration(color: AppColors.whiteColor.withOpacity(.2), shape: BoxShape.circle),
-              child: const Icon(Icons.arrow_forward_rounded, color: AppColors.whiteColor, size: 16),
+              child: const Icon(Icons.arrow_forward_rounded, color: AppColors.whiteColor, size: 14),
             ),
           ],
         ),
@@ -360,9 +370,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
 
     HolidayModel? nextHoliday;
     if (holidayAsync.hasValue) {
-      final upcoming = [...holidayAsync.value!]
-          .where((h) => !h.isPast)
-          .toList()
+      final upcoming = [...holidayAsync.value!].where((h) => !h.isPast).toList()
         ..sort((a, b) => a.holidayDate.compareTo(b.holidayDate));
       if (upcoming.isNotEmpty) nextHoliday = upcoming.first;
     }
@@ -378,7 +386,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
             label: "Annual allowance total",
           ),
         ),
-        const SizedBox(width: 10),
+        const SizedBox(width: 8),
         Expanded(
           child: _buildPoolStatCard(
             icon: Icons.celebration_outlined,
@@ -400,10 +408,10 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     required String label,
   }) {
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Column(
@@ -411,15 +419,20 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
         children: [
           Row(
             children: [
-              Icon(icon, size: 15, color: iconColor),
-              const SizedBox(width: 6),
+              Icon(icon, size: 13, color: iconColor),
+              const SizedBox(width: 5),
               Flexible(
-                child: AppText(title, fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.labelTextColor, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: AppText(title,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.labelTextColor,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          AppText(value, fontSize: 20, fontWeight: FontWeight.w700),
+          const SizedBox(height: 6),
+          AppText(value, fontSize: 16, fontWeight: FontWeight.w600),
           const SizedBox(height: 2),
           CaptionText(label, textAlign: TextAlign.start),
         ],
@@ -432,14 +445,14 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const AppText("Recent Requests", fontSize: 17, fontWeight: FontWeight.w700),
+        const AppText("Recent Requests", fontSize: 14, fontWeight: FontWeight.w600),
         InkWell(
           onTap: () => Navigator.pushNamed(context, RouteNames.leaveHistory),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AppText("View All", fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.primaryColor),
-              Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.primaryColor),
+              AppText("View All", fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
+              Icon(Icons.chevron_right_rounded, size: 16, color: AppColors.primaryColor),
             ],
           ),
         ),
@@ -458,14 +471,14 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     if (items.isEmpty) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 28),
+        padding: const EdgeInsets.symmetric(vertical: 22),
         decoration: BoxDecoration(
           color: AppColors.cardBgColor,
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
           border: Border.all(color: AppColors.borderColor),
         ),
         child: const Center(
-          child: AppText("No leave requests yet", fontSize: 13, color: AppColors.labelTextColor),
+          child: AppText("No leave requests yet", fontSize: 12, color: AppColors.labelTextColor),
         ),
       );
     }
@@ -475,7 +488,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     return Column(
       children: items
           .map((r) => Padding(
-        padding: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.only(bottom: 10),
         child: _buildRequestCard(r, types),
       ))
           .toList(),
@@ -490,23 +503,23 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     final statusColor = AppColors.requestStatusColor(request.status);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 46,
-            width: 46,
+            height: 38,
+            width: 38,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(14)),
-            child: Icon(icon, color: AppColors.primaryColor, size: 22),
+            decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
+            child: Icon(icon, color: AppColors.primaryColor, size: 18),
           ),
-          const SizedBox(width: 14),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -514,25 +527,31 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
                 Row(
                   children: [
                     Expanded(
-                      child: AppText(typeName, fontSize: 16, fontWeight: FontWeight.w700, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: AppText(typeName,
+                          fontSize: 13, fontWeight: FontWeight.w600, maxLines: 1, overflow: TextOverflow.ellipsis),
                     ),
                     _buildStatusChip(request.status, statusColor),
                   ],
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 CaptionText(_dateRangeLabel(request)),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+                  spacing: 5,
+                  runSpacing: 5,
                   children: [
                     _buildTagChip("${request.totalDays.toStringAsFixed(request.totalDays % 1 == 0 ? 0 : 1)} Day"),
                     _buildTagChip(LeaveUiHelper.durationLabel(request.leaveDurationType)),
                   ],
                 ),
                 if (request.reason != null && request.reason!.isNotEmpty) ...[
-                  const SizedBox(height: 8),
-                  AppText('"${request.reason}"', fontSize: 12, fontStyle: FontStyle.italic, color: AppColors.labelTextColor, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 6),
+                  AppText('"${request.reason}"',
+                      fontSize: 11,
+                      fontStyle: FontStyle.italic,
+                      color: AppColors.labelTextColor,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis),
                 ],
               ],
             ),
@@ -550,9 +569,9 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
 
   Widget _buildTagChip(String label) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(color: AppColors.fieldFillColor, borderRadius: BorderRadius.circular(20)),
-      child: AppText(label, fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.labelTextColor),
+      child: AppText(label, fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.labelTextColor),
     );
   }
 
@@ -569,14 +588,14 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
         icon = Icons.circle;
     }
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: status.toUpperCase() == 'PENDING' ? 7 : 12, color: color),
-          const SizedBox(width: 4),
-          AppText(status, fontSize: 10, fontWeight: FontWeight.w700, color: color),
+          Icon(icon, size: status.toUpperCase() == 'PENDING' ? 6 : 10, color: color),
+          const SizedBox(width: 3),
+          AppText(status, fontSize: 9, fontWeight: FontWeight.w600, color: color),
         ],
       ),
     );
@@ -587,20 +606,20 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
     final message = error is Failure ? error.message : "Something went wrong.";
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
         children: [
-          const Icon(Icons.wifi_off_rounded, color: AppColors.errorColor),
-          const SizedBox(width: 10),
-          Expanded(child: AppText(message, fontSize: 13, color: AppColors.labelTextColor)),
+          const Icon(Icons.wifi_off_rounded, color: AppColors.errorColor, size: 18),
+          const SizedBox(width: 8),
+          Expanded(child: AppText(message, fontSize: 12, color: AppColors.labelTextColor)),
           TextButton(
             onPressed: onRetry,
-            child: const AppText("Retry", fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primaryColor),
+            child: const AppText("Retry", fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
           ),
         ],
       ),
@@ -615,15 +634,15 @@ class _BalanceCarouselSkeleton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 210,
+      height: 160,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: 3,
         itemBuilder: (context, i) => Padding(
-          padding: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.only(right: 10),
           child: SizedBox(
-            width: 260,
-            child: AppSkeletonBox(height: 210, borderRadius: 20),
+            width: 210,
+            child: AppSkeletonBox(height: 160, borderRadius: 16),
           ),
         ),
       ),
@@ -639,8 +658,8 @@ class _RecentListSkeleton extends StatelessWidget {
     return Column(
       children: List.generate(3, (i) {
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: AppSkeletonBox(height: 130, borderRadius: 18),
+          padding: const EdgeInsets.only(bottom: 10),
+          child: AppSkeletonBox(height: 108, borderRadius: 16),
         );
       }),
     );

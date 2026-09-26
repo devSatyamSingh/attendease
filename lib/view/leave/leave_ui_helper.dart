@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../widget/app_colors.dart';
 
-/// AttendEase — presentation-only helpers for leave types/status.
-/// Keeps icon/color decisions out of the model layer.
+
 class LeaveUiHelper {
   static IconData iconForCode(String code) {
     switch (code.toUpperCase()) {

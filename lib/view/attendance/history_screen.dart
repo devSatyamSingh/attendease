@@ -12,22 +12,20 @@ import '../../widget/app_text.dart';
 
 enum _RowStatus { working, onTime, late, missingCheckout }
 
-/// AttendEase — Attendance History screen.
-/// Wired to [attendanceHistoryViewModelProvider]: changing the selected
-/// month (chips, chevrons, or the calendar picker) reloads the list
-/// scoped to that month's `from`/`to` range, and the stats row / on-time
-/// rate are computed live from whatever's actually loaded for it.
 class AttendanceHistoryScreen extends ConsumerStatefulWidget {
   const AttendanceHistoryScreen({super.key});
 
   @override
-  ConsumerState<AttendanceHistoryScreen> createState() => _AttendanceHistoryScreenState();
+  ConsumerState<AttendanceHistoryScreen> createState() =>
+      _AttendanceHistoryScreenState();
 }
 
-class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScreen> {
+class _AttendanceHistoryScreenState
+    extends ConsumerState<AttendanceHistoryScreen> {
   late DateTime _selectedMonth;
   late DateTime _focusedCalendarDay;
   DateTime? _selectedCalendarDay;
+  DateTime? _filteredDay;
 
   final ScrollController _scrollController = ScrollController();
 
@@ -40,7 +38,8 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
     _selectedCalendarDay = now;
 
     _scrollController.addListener(() {
-      if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+      if (_scrollController.position.pixels >=
+          _scrollController.position.maxScrollExtent - 200) {
         ref.read(attendanceHistoryViewModelProvider.notifier).loadMore();
       }
     });
@@ -55,15 +54,35 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
     super.dispose();
   }
 
+
   void _loadMonth(DateTime month) {
+    _filteredDay = null;
     final from = DateTime(month.year, month.month, 1);
     final to = DateTime(month.year, month.month + 1, 0);
-    ref.read(attendanceHistoryViewModelProvider.notifier).loadFirstPage(from: from, to: to);
+    ref
+        .read(attendanceHistoryViewModelProvider.notifier)
+        .loadFirstPage(from: from, to: to);
+  }
+
+  void _loadDay(DateTime day) {
+    setState(() => _filteredDay = day);
+    final dayOnly = DateTime(day.year, day.month, day.day);
+    ref
+        .read(attendanceHistoryViewModelProvider.notifier)
+        .loadFirstPage(from: dayOnly, to: dayOnly);
+  }
+
+  void _clearDayFilter() {
+    _loadMonth(_selectedMonth);
+    setState(() {});
   }
 
   void _shiftMonth(int delta) {
     setState(() {
-      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + delta);
+      _selectedMonth = DateTime(
+        _selectedMonth.year,
+        _selectedMonth.month + delta,
+      );
     });
     _loadMonth(_selectedMonth);
   }
@@ -71,7 +90,8 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
   _RowStatus _statusFor(AttendanceModel r) {
     final today = DateTime.now();
     final recordDate = r.attendanceDate ?? r.createdAt;
-    final isToday = recordDate != null &&
+    final isToday =
+        recordDate != null &&
         recordDate.year == today.year &&
         recordDate.month == today.month &&
         recordDate.day == today.day;
@@ -108,7 +128,9 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
             constraints: const BoxConstraints(maxWidth: 560),
             child: RefreshIndicator(
               color: AppColors.primaryColor,
-              onRefresh: () => ref.read(attendanceHistoryViewModelProvider.notifier).refresh(),
+              onRefresh: () => ref
+                  .read(attendanceHistoryViewModelProvider.notifier)
+                  .refresh(),
               child: ListView(
                 controller: _scrollController,
                 padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
@@ -124,27 +146,29 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                   else if (historyState.isEmpty && historyState.failure != null)
                     _buildErrorState(historyState.failure!)
                   else ...[
-                      _buildStatsRow(historyState.items),
-                      const SizedBox(height: 14),
-                      _buildOnTimeBanner(historyState.items),
-                      const SizedBox(height: 22),
-                      _buildRecordsHeader(historyState.items.length),
-                      const SizedBox(height: 12),
-                      if (historyState.isEmpty)
-                        _buildEmptyState()
-                      else
-                        ...historyState.items.map(
-                              (r) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _buildRecordCard(context, r),
-                          ),
+                    _buildStatsRow(historyState.items),
+                    const SizedBox(height: 14),
+                    _buildOnTimeBanner(historyState.items),
+                    const SizedBox(height: 22),
+                    _buildRecordsHeader(historyState.items.length),
+                    const SizedBox(height: 12),
+                    if (historyState.isEmpty)
+                      _buildEmptyState()
+                    else
+                      ...historyState.items.map(
+                        (r) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _buildRecordCard(context, r),
                         ),
-                      if (historyState.isLoadingMore)
-                        const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 16),
-                          child: Center(child: CircularProgressIndicator(strokeWidth: 2.4)),
+                      ),
+                    if (historyState.isLoadingMore)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 16),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2.4),
                         ),
-                    ],
+                      ),
+                  ],
                 ],
               ),
             ),
@@ -163,7 +187,10 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
           customBorder: const CircleBorder(),
           child: const Padding(
             padding: EdgeInsets.all(6),
-            child: Icon(Icons.arrow_back_rounded, color: AppColors.headlineTextColor),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.headlineTextColor,
+            ),
           ),
         ),
         Expanded(
@@ -179,7 +206,10 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
           customBorder: const CircleBorder(),
           child: const Padding(
             padding: EdgeInsets.all(6),
-            child: Icon(Icons.calendar_month_rounded, color: AppColors.headlineTextColor),
+            child: Icon(
+              Icons.calendar_month_rounded,
+              color: AppColors.headlineTextColor,
+            ),
           ),
         ),
       ],
@@ -188,7 +218,11 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
 
   // ==================== OVERVIEW HEADER ====================
   Widget _buildOverviewHeader(BuildContext context) {
-    return AppText(_monthLabel(_selectedMonth), fontSize: 18, fontWeight: FontWeight.w600);
+    return AppText(
+      _monthLabel(_selectedMonth),
+      fontSize: 18,
+      fontWeight: FontWeight.w600,
+    );
   }
 
   // ==================== MONTH SCROLLER ====================
@@ -206,14 +240,19 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
           customBorder: const CircleBorder(),
           child: const Padding(
             padding: EdgeInsets.all(6),
-            child: Icon(Icons.chevron_left_rounded, color: AppColors.labelTextColor),
+            child: Icon(
+              Icons.chevron_left_rounded,
+              color: AppColors.labelTextColor,
+            ),
           ),
         ),
         Expanded(
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: months.map((m) {
-              final bool active = m.year == _selectedMonth.year && m.month == _selectedMonth.month;
+              final bool active =
+                  m.year == _selectedMonth.year &&
+                  m.month == _selectedMonth.month;
               return InkWell(
                 borderRadius: BorderRadius.circular(20),
                 onTap: () {
@@ -222,7 +261,10 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                 },
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 9,
+                  ),
                   decoration: BoxDecoration(
                     color: active ? AppColors.primaryColor : Colors.transparent,
                     borderRadius: BorderRadius.circular(20),
@@ -234,7 +276,10 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                         Container(
                           height: 6,
                           width: 6,
-                          decoration: const BoxDecoration(color: AppColors.whiteColor, shape: BoxShape.circle),
+                          decoration: const BoxDecoration(
+                            color: AppColors.whiteColor,
+                            shape: BoxShape.circle,
+                          ),
                         ),
                         const SizedBox(width: 6),
                       ],
@@ -242,7 +287,9 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                         _monthShortLabel(m),
                         fontSize: 12,
                         fontWeight: active ? FontWeight.w600 : FontWeight.w400,
-                        color: active ? AppColors.whiteColor : AppColors.labelTextColor,
+                        color: active
+                            ? AppColors.whiteColor
+                            : AppColors.labelTextColor,
                       ),
                     ],
                   ),
@@ -256,7 +303,10 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
           customBorder: const CircleBorder(),
           child: const Padding(
             padding: EdgeInsets.all(6),
-            child: Icon(Icons.chevron_right_rounded, color: AppColors.labelTextColor),
+            child: Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.labelTextColor,
+            ),
           ),
         ),
       ],
@@ -267,20 +317,44 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
   Widget _buildStatsRow(List<AttendanceModel> items) {
     final presentCount = items.where((r) => r.actualCheckIn != null).length;
     final lateCount = items.where((r) => (r.lateMinutes ?? 0) > 0).length;
-    final missingCount = items.where((r) => _statusFor(r) == _RowStatus.missingCheckout).length;
+    final missingCount = items
+        .where((r) => _statusFor(r) == _RowStatus.missingCheckout)
+        .length;
 
     return Row(
       children: [
-        Expanded(child: _buildStatPill(color: AppColors.successColor, value: "$presentCount", label: "Present")),
+        Expanded(
+          child: _buildStatPill(
+            color: AppColors.successColor,
+            value: "$presentCount",
+            label: "Present",
+          ),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _buildStatPill(color: AppColors.warningColor, value: "$lateCount", label: "Late")),
+        Expanded(
+          child: _buildStatPill(
+            color: AppColors.warningColor,
+            value: "$lateCount",
+            label: "Late",
+          ),
+        ),
         const SizedBox(width: 10),
-        Expanded(child: _buildStatPill(color: AppColors.errorColor, value: "$missingCount", label: "Missing")),
+        Expanded(
+          child: _buildStatPill(
+            color: AppColors.errorColor,
+            value: "$missingCount",
+            label: "Missing",
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildStatPill({required Color color, required String value, required String label}) {
+  Widget _buildStatPill({
+    required Color color,
+    required String value,
+    required String label,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
       decoration: BoxDecoration(
@@ -293,7 +367,11 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(height: 8, width: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              Container(
+                height: 8,
+                width: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
               const SizedBox(width: 6),
               AppText(value, fontSize: 17, fontWeight: FontWeight.w600),
             ],
@@ -308,30 +386,52 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
   // ==================== ON-TIME BANNER (computed from loaded month) ====================
   Widget _buildOnTimeBanner(List<AttendanceModel> items) {
     final completed = items.where((r) => r.actualCheckOut != null).toList();
-    final onTimeCount = completed.where((r) => (r.lateMinutes ?? 0) == 0).length;
-    final rate = completed.isEmpty ? 0.0 : (onTimeCount / completed.length) * 100;
+    final onTimeCount = completed
+        .where((r) => (r.lateMinutes ?? 0) == 0)
+        .length;
+    final rate = completed.isEmpty
+        ? 0.0
+        : (onTimeCount / completed.length) * 100;
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(18)),
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(18),
+      ),
       child: Row(
         children: [
           Container(
             height: 42,
             width: 42,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.primaryColor, borderRadius: BorderRadius.circular(13)),
-            child: const Icon(Icons.insights_rounded, color: AppColors.whiteColor, size: 20),
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor,
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: const Icon(
+              Icons.insights_rounded,
+              color: AppColors.whiteColor,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppText("${rate.toStringAsFixed(1)}% On-Time Rate", fontSize: 12, fontWeight: FontWeight.w600),
+                AppText(
+                  "${rate.toStringAsFixed(1)}% On-Time Rate",
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
                 const SizedBox(height: 2),
-                CaptionText(completed.isEmpty ? "No completed days yet this month" : "${completed.length} completed day${completed.length == 1 ? '' : 's'}"),
+                CaptionText(
+                  completed.isEmpty
+                      ? "No completed days yet this month"
+                      : "${completed.length} completed day${completed.length == 1 ? '' : 's'}",
+                ),
               ],
             ),
           ),
@@ -345,12 +445,52 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        AppText("DAILY RECORDS", fontSize: 12, fontWeight: FontWeight.w600, letterSpacing: 1, color: AppColors.labelTextColor),
-        CaptionText("Showing $count entries"),
+        Row(
+          children: [
+            AppText(
+              "DAILY RECORDS",
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              letterSpacing: 1,
+              color: AppColors.labelTextColor,
+            ),
+            if (_filteredDay != null) ...[
+              const SizedBox(width: 8),
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: _clearDayFilter,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withOpacity(.12),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.close_rounded, size: 12, color: AppColors.primaryColor),
+                      const SizedBox(width: 3),
+                      AppText(
+                        "Clear",
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primaryColor,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        CaptionText(
+          _filteredDay != null
+              ? "${DateFormat("d MMM").format(_filteredDay!)} • $count ${count == 1 ? 'entry' : 'entries'}"
+              : "Showing $count entries",
+        ),
       ],
     );
   }
-
   Widget _buildEmptyState() {
     return Container(
       width: double.infinity,
@@ -358,9 +498,17 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
       alignment: Alignment.center,
       child: Column(
         children: [
-          const Icon(Icons.event_busy_rounded, size: 36, color: AppColors.placeholderColor),
+          const Icon(
+            Icons.event_busy_rounded,
+            size: 36,
+            color: AppColors.placeholderColor,
+          ),
           const SizedBox(height: 10),
-          AppText("No attendance records for this month", fontSize: 13, color: AppColors.labelTextColor),
+          AppText(
+            "No attendance records for this month",
+            fontSize: 13,
+            color: AppColors.labelTextColor,
+          ),
         ],
       ),
     );
@@ -377,13 +525,26 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
       ),
       child: Column(
         children: [
-          const Icon(Icons.wifi_off_rounded, size: 32, color: AppColors.errorColor),
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 32,
+            color: AppColors.errorColor,
+          ),
           const SizedBox(height: 10),
-          AppText(failure.message, fontSize: 13, color: AppColors.labelTextColor, textAlign: TextAlign.center),
+          AppText(
+            failure.message,
+            fontSize: 13,
+            color: AppColors.labelTextColor,
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 14),
           SizedBox(
             width: 140,
-            child: AppButton(text: "Retry", icon: Icons.refresh_rounded, onTap: () => _loadMonth(_selectedMonth)),
+            child: AppButton(
+              text: "Retry",
+              icon: Icons.refresh_rounded,
+              onTap: () => _loadMonth(_selectedMonth),
+            ),
           ),
         ],
       ),
@@ -402,14 +563,21 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
         children: [
           Container(
             width: 4,
-            decoration: BoxDecoration(color: accent, borderRadius: const BorderRadius.horizontal(left: Radius.circular(4))),
+            decoration: BoxDecoration(
+              color: accent,
+              borderRadius: const BorderRadius.horizontal(
+                left: Radius.circular(4),
+              ),
+            ),
           ),
           Expanded(
             child: Container(
               padding: const EdgeInsets.all(14),
               decoration: const BoxDecoration(
                 color: AppColors.cardBgColor,
-                borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
+                borderRadius: BorderRadius.horizontal(
+                  right: Radius.circular(16),
+                ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -433,20 +601,32 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
     return Container(
       width: 52,
       padding: const EdgeInsets.symmetric(vertical: 8),
-      decoration: BoxDecoration(color: AppColors.fieldFillColor, borderRadius: BorderRadius.circular(12)),
+      decoration: BoxDecoration(
+        color: AppColors.fieldFillColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
       child: Column(
         children: [
           AppText("${date.day}", fontSize: 18, fontWeight: FontWeight.w800),
           const SizedBox(height: 2),
-          AppText(weekdayShort[date.weekday - 1], fontSize: 10, fontWeight: FontWeight.w600, color: AppColors.labelTextColor),
+          AppText(
+            weekdayShort[date.weekday - 1],
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: AppColors.labelTextColor,
+          ),
         ],
       ),
     );
   }
 
   Widget _buildInOutColumn(AttendanceModel record, _RowStatus status) {
-    final inLabel = record.actualCheckIn != null ? _formatTime(record.actualCheckIn!) : "--:--";
-    final outLabel = record.actualCheckOut != null ? _formatTime(record.actualCheckOut!) : (status == _RowStatus.working ? "In Progress..." : "--:--");
+    final inLabel = record.actualCheckIn != null
+        ? _formatTime(record.actualCheckIn!)
+        : "--:--";
+    final outLabel = record.actualCheckOut != null
+        ? _formatTime(record.actualCheckOut!)
+        : (status == _RowStatus.working ? "In Progress..." : "--:--");
     final bool isLate = status == _RowStatus.late;
     final bool isMissing = status == _RowStatus.missingCheckout;
 
@@ -466,7 +646,9 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
               "In: $inLabel",
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isLate ? AppColors.warningColor : AppColors.headlineTextColor,
+              color: isLate
+                  ? AppColors.warningColor
+                  : AppColors.headlineTextColor,
             ),
           ],
         ),
@@ -476,9 +658,15 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
             Icon(
               isMissing
                   ? Icons.warning_amber_rounded
-                  : (status == _RowStatus.working ? Icons.sync_rounded : Icons.logout_rounded),
+                  : (status == _RowStatus.working
+                        ? Icons.sync_rounded
+                        : Icons.logout_rounded),
               size: 14,
-              color: isMissing ? AppColors.errorColor : (status == _RowStatus.working ? AppColors.primaryColor : AppColors.errorColor),
+              color: isMissing
+                  ? AppColors.errorColor
+                  : (status == _RowStatus.working
+                        ? AppColors.primaryColor
+                        : AppColors.errorColor),
             ),
             const SizedBox(width: 6),
             Flexible(
@@ -486,7 +674,11 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                 isMissing ? "Out: --:--" : "Out: $outLabel",
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isMissing ? AppColors.errorColor : (status == _RowStatus.working ? AppColors.primaryColor : AppColors.headlineTextColor),
+                color: isMissing
+                    ? AppColors.errorColor
+                    : (status == _RowStatus.working
+                          ? AppColors.primaryColor
+                          : AppColors.headlineTextColor),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -496,12 +688,20 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
     );
   }
 
-  Widget _buildDurationAndStatus(AttendanceModel record, _RowStatus status, Color accent) {
+  Widget _buildDurationAndStatus(
+    AttendanceModel record,
+    _RowStatus status,
+    Color accent,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        AppText(_workedLabel(record, status), fontSize: 13, fontWeight: FontWeight.w600),
+        AppText(
+          _workedLabel(record, status),
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
         const SizedBox(height: 6),
         _buildStatusChip(record, status, accent),
       ],
@@ -510,8 +710,12 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
 
   String _workedLabel(AttendanceModel record, _RowStatus status) {
     int? minutes = record.workedMinutes;
-    if (minutes == null && status == _RowStatus.working && record.actualCheckIn != null) {
-      minutes = DateTime.now().difference(record.actualCheckIn!.toLocal()).inMinutes;
+    if (minutes == null &&
+        status == _RowStatus.working &&
+        record.actualCheckIn != null) {
+      minutes = DateTime.now()
+          .difference(record.actualCheckIn!.toLocal())
+          .inMinutes;
     }
     if (minutes == null) return "--";
     final h = minutes ~/ 60;
@@ -519,7 +723,11 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
     return "${h}h ${m.toString().padLeft(2, '0')}m";
   }
 
-  Widget _buildStatusChip(AttendanceModel record, _RowStatus status, Color color) {
+  Widget _buildStatusChip(
+    AttendanceModel record,
+    _RowStatus status,
+    Color color,
+  ) {
     final String label = switch (status) {
       _RowStatus.working => "Working",
       _RowStatus.onTime => "On Time",
@@ -529,17 +737,32 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           status == _RowStatus.working
               ? _BlinkingDot(color: color)
               : (status == _RowStatus.missingCheckout
-              ? Icon(Icons.error_rounded, size: 11, color: color)
-              : Container(height: 6, width: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle))),
+                    ? Icon(Icons.error_rounded, size: 11, color: color)
+                    : Container(
+                        height: 6,
+                        width: 6,
+                        decoration: BoxDecoration(
+                          color: color,
+                          shape: BoxShape.circle,
+                        ),
+                      )),
           const SizedBox(width: 5),
-          AppText(label, fontSize: 10, fontWeight: FontWeight.w600, color: color),
+          AppText(
+            label,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
         ],
       ),
     );
@@ -572,15 +795,25 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                     height: 4,
                     width: 40,
                     margin: const EdgeInsets.only(bottom: 14),
-                    decoration: BoxDecoration(color: AppColors.borderColor, borderRadius: BorderRadius.circular(4)),
+                    decoration: BoxDecoration(
+                      color: AppColors.borderColor,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                   ),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      AppText("Jump to date", fontSize: 14, fontWeight: FontWeight.w600),
+                      AppText(
+                        "Jump to date",
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                       InkWell(
                         onTap: () => Navigator.pop(sheetContext),
-                        child: const Icon(Icons.close_rounded, color: AppColors.labelTextColor),
+                        child: const Icon(
+                          Icons.close_rounded,
+                          color: AppColors.labelTextColor,
+                        ),
                       ),
                     ],
                   ),
@@ -603,22 +836,63 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                     headerStyle: const HeaderStyle(
                       formatButtonVisible: false,
                       titleCentered: true,
-                      titleTextStyle: TextStyle(fontFamily: "Poppins", fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.headlineTextColor),
-                      leftChevronIcon: Icon(Icons.chevron_left_rounded, color: AppColors.labelTextColor),
-                      rightChevronIcon: Icon(Icons.chevron_right_rounded, color: AppColors.labelTextColor),
+                      titleTextStyle: TextStyle(
+                        fontFamily: "Poppins",
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.headlineTextColor,
+                      ),
+                      leftChevronIcon: Icon(
+                        Icons.chevron_left_rounded,
+                        color: AppColors.labelTextColor,
+                      ),
+                      rightChevronIcon: Icon(
+                        Icons.chevron_right_rounded,
+                        color: AppColors.labelTextColor,
+                      ),
                     ),
                     daysOfWeekStyle: const DaysOfWeekStyle(
-                      weekdayStyle: TextStyle(fontFamily: "Poppins", fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.labelTextColor),
-                      weekendStyle: TextStyle(fontFamily: "Poppins", fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.labelTextColor),
+                      weekdayStyle: TextStyle(
+                        fontFamily: "Poppins",
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.labelTextColor,
+                      ),
+                      weekendStyle: TextStyle(
+                        fontFamily: "Poppins",
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.labelTextColor,
+                      ),
                     ),
                     calendarStyle: CalendarStyle(
                       outsideDaysVisible: false,
-                      defaultTextStyle: const TextStyle(fontFamily: "Poppins", fontSize: 13),
-                      weekendTextStyle: const TextStyle(fontFamily: "Poppins", fontSize: 13),
-                      todayDecoration: BoxDecoration(color: AppColors.primaryColor.withOpacity(.15), shape: BoxShape.circle),
-                      todayTextStyle: const TextStyle(fontFamily: "Poppins", fontWeight: FontWeight.w500, color: AppColors.primaryColor),
-                      selectedDecoration: const BoxDecoration(color: AppColors.primaryColor, shape: BoxShape.circle),
-                      selectedTextStyle: const TextStyle(fontFamily: "Poppins", fontWeight: FontWeight.w700, color: AppColors.whiteColor),
+                      defaultTextStyle: const TextStyle(
+                        fontFamily: "Poppins",
+                        fontSize: 13,
+                      ),
+                      weekendTextStyle: const TextStyle(
+                        fontFamily: "Poppins",
+                        fontSize: 13,
+                      ),
+                      todayDecoration: BoxDecoration(
+                        color: AppColors.primaryColor.withOpacity(.15),
+                        shape: BoxShape.circle,
+                      ),
+                      todayTextStyle: const TextStyle(
+                        fontFamily: "Poppins",
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.primaryColor,
+                      ),
+                      selectedDecoration: const BoxDecoration(
+                        color: AppColors.primaryColor,
+                        shape: BoxShape.circle,
+                      ),
+                      selectedTextStyle: const TextStyle(
+                        fontFamily: "Poppins",
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.whiteColor,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -631,17 +905,32 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
                           _focusedCalendarDay = tempFocused;
                           _selectedCalendarDay = tempSelected;
                           if (tempSelected != null) {
-                            _selectedMonth = DateTime(tempSelected!.year, tempSelected!.month);
+                            _selectedMonth = DateTime(
+                              tempSelected!.year,
+                              tempSelected!.month,
+                            );
                           }
                         });
-                        _loadMonth(_selectedMonth);
+                        if (tempSelected != null) {
+                          _loadDay(tempSelected!);
+                        } else {
+                          _loadMonth(_selectedMonth);
+                        }
                         Navigator.pop(sheetContext);
                       },
                       child: Container(
                         alignment: Alignment.center,
                         padding: const EdgeInsets.symmetric(vertical: 14),
-                        decoration: BoxDecoration(color: AppColors.primaryColor, borderRadius: BorderRadius.circular(14)),
-                        child: AppText("Apply", fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.whiteColor),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryColor,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: AppText(
+                          "Apply",
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.whiteColor,
+                        ),
                       ),
                     ),
                   ),
@@ -656,14 +945,37 @@ class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScree
 
   String _monthLabel(DateTime date) {
     const months = [
-      "January", "February", "March", "April", "May", "June",
-      "July", "August", "September", "October", "November", "December"
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
     ];
     return "${months[date.month - 1]} ${date.year}";
   }
 
   String _monthShortLabel(DateTime date) {
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     return "${months[date.month - 1]} ${date.year}";
   }
 }
@@ -677,15 +989,22 @@ class _BlinkingDot extends StatefulWidget {
   State<_BlinkingDot> createState() => _BlinkingDotState();
 }
 
-class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderStateMixin {
+class _BlinkingDotState extends State<_BlinkingDot>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..repeat(reverse: true);
-    _opacity = Tween<double>(begin: 1, end: .25).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    )..repeat(reverse: true);
+    _opacity = Tween<double>(
+      begin: 1,
+      end: .25,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
@@ -698,7 +1017,11 @@ class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderSta
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _opacity,
-      child: Container(height: 6, width: 6, decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle)),
+      child: Container(
+        height: 6,
+        width: 6,
+        decoration: BoxDecoration(color: widget.color, shape: BoxShape.circle),
+      ),
     );
   }
 }

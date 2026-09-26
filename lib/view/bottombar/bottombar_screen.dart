@@ -16,11 +16,7 @@ class BottomBarScreen extends StatefulWidget {
 
 class _BottomBarScreenState extends State<BottomBarScreen> {
   static const int _homeTabIndex = 0;
-
   int _currentIndex = _homeTabIndex;
-
-  // Order here MUST match the BottomNavigationBarItems in
-  // _buildBottomNav() below — index 0 is Home on purpose.
   final List<Widget> _tabs = const [
     DashboardScreen(),
     AttendanceHistoryScreen(),
@@ -30,19 +26,15 @@ class _BottomBarScreenState extends State<BottomBarScreen> {
 
   Future<void> _handleBackPress() async {
     if (_currentIndex != _homeTabIndex) {
-      // Kisi aur tab pe hain -> pehle Home tab pe le jao, app band mat karo.
       setState(() => _currentIndex = _homeTabIndex);
       return;
     }
-    // Pehle se Home tab pe hain -> ab exit confirm poocho.
     await AnimatedExitDialog.show(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return PopScope(
-      // canPop:false -> system back kabhi seedha app close nahi karega,
-      // hamesha pehle _handleBackPress() se hoke guzregा.
       canPop: false,
       onPopInvoked: (didPop) async {
         if (didPop) return;

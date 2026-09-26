@@ -4,13 +4,6 @@ import '../core/constants/app_constants.dart';
 import '../model/device_model.dart';
 import 'storage_service.dart';
 
-/// AttendEase — builds the `device` payload sent on login and on a
-/// device-change request.
-///
-/// The device_id is generated ONCE (from the OS's own vendor/android
-/// id) and then persisted via StorageService — every subsequent call
-/// reuses the same cached id, which is exactly what lets the backend
-/// tell "same phone, new login" apart from "different phone".
 class DeviceInfoService {
   static final DeviceInfoService _instance = DeviceInfoService._internal();
   factory DeviceInfoService() => _instance;

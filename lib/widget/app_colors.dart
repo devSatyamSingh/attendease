@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-/// AttendEase — centralized color palette.
-/// Never hardcode colors in widgets/screens — always use AppColors.xxx
 class AppColors {
   AppColors._();
 

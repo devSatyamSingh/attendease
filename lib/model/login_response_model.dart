@@ -1,7 +1,5 @@
 import 'user_model.dart';
 
-/// AttendEase — parses `data` from `POST /auth/login`:
-/// { "access_token", "refresh_token", "user": {...}, "device_status" }
 class LoginResponseModel {
   final String accessToken;
   final String refreshToken;

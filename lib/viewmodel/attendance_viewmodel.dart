@@ -6,10 +6,9 @@ import '../repo/attendance_repo.dart';
 import '../services/device_info_service.dart';
 import '../services/location_service.dart';
 
-
-final attendanceRepositoryProvider = Provider<AttendanceRepository>((ref) => AttendanceRepository());
-
-// ==================== TODAY + CHECK-IN / CHECK-OUT ====================
+final attendanceRepositoryProvider = Provider<AttendanceRepository>(
+  (ref) => AttendanceRepository(),
+);
 
 class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
   @override
@@ -20,7 +19,7 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-          () => ref.read(attendanceRepositoryProvider).getTodayAttendance(),
+      () => ref.read(attendanceRepositoryProvider).getTodayAttendance(),
     );
   }
 
@@ -31,20 +30,19 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
       final position = await LocationService().getCurrentLocation();
       final device = await DeviceInfoService().buildDeviceModel();
 
-      return ref.read(attendanceRepositoryProvider).checkIn(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        accuracy: position.accuracy,
-        deviceId: device.deviceId,
-      );
+      return ref
+          .read(attendanceRepositoryProvider)
+          .checkIn(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            accuracy: position.accuracy,
+            deviceId: device.deviceId,
+          );
     });
 
     state = result;
 
     if (!result.hasError) {
-      // Aaj ka naya check-in Recent Activity aur History (Daily
-      // Records) list mein bhi turant reflect hona chahiye — inhe bhi
-      // refresh kar do, warna wo purana cached data dikhate rehte hain.
       ref.invalidate(recentAttendanceProvider);
       ref.read(attendanceHistoryViewModelProvider.notifier).refresh();
     }
@@ -59,12 +57,14 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
       final position = await LocationService().getCurrentLocation();
       final device = await DeviceInfoService().buildDeviceModel();
 
-      return ref.read(attendanceRepositoryProvider).checkOut(
-        latitude: position.latitude,
-        longitude: position.longitude,
-        accuracy: position.accuracy,
-        deviceId: device.deviceId,
-      );
+      return ref
+          .read(attendanceRepositoryProvider)
+          .checkOut(
+            latitude: position.latitude,
+            longitude: position.longitude,
+            accuracy: position.accuracy,
+            deviceId: device.deviceId,
+          );
     });
 
     state = result;
@@ -79,7 +79,9 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
 }
 
 final attendanceViewModelProvider =
-AsyncNotifierProvider<AttendanceViewModel, AttendanceModel?>(AttendanceViewModel.new);
+    AsyncNotifierProvider<AttendanceViewModel, AttendanceModel?>(
+      AttendanceViewModel.new,
+    );
 
 // ==================== PAGINATED HISTORY ====================
 
@@ -126,7 +128,6 @@ class AttendanceHistoryState {
 class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
   static const _pageSize = 31; // covers a full calendar month in one page
 
-
   DateTime? _lastFrom;
   DateTime? _lastTo;
 
@@ -153,10 +154,12 @@ class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
     } on Failure catch (f) {
       state = state.copyWith(isLoading: false, failure: f);
     } catch (e) {
-      state = state.copyWith(isLoading: false, failure: UnknownFailure(message: e.toString()));
+      state = state.copyWith(
+        isLoading: false,
+        failure: UnknownFailure(message: e.toString()),
+      );
     }
   }
-
 
   Future<void> loadMore() async {
     if (state.isLoading || state.isLoadingMore || !state.hasMore) return;
@@ -164,12 +167,14 @@ class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
     state = state.copyWith(isLoadingMore: true, clearFailure: true);
     try {
       final nextPage = state.page + 1;
-      final response = await ref.read(attendanceRepositoryProvider).getHistory(
-        page: nextPage,
-        limit: _pageSize,
-        from: _lastFrom,
-        to: _lastTo,
-      );
+      final response = await ref
+          .read(attendanceRepositoryProvider)
+          .getHistory(
+            page: nextPage,
+            limit: _pageSize,
+            from: _lastFrom,
+            to: _lastTo,
+          );
       state = state.copyWith(
         items: [...state.items, ...response.items],
         page: response.pagination.page,
@@ -179,7 +184,10 @@ class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
     } on Failure catch (f) {
       state = state.copyWith(isLoadingMore: false, failure: f);
     } catch (e) {
-      state = state.copyWith(isLoadingMore: false, failure: UnknownFailure(message: e.toString()));
+      state = state.copyWith(
+        isLoadingMore: false,
+        failure: UnknownFailure(message: e.toString()),
+      );
     }
   }
 
@@ -188,13 +196,16 @@ class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
 
 // ==================== RECENT ACTIVITY (dashboard) ====================
 
-final recentAttendanceProvider = FutureProvider<List<AttendanceModel>>((ref) async {
+final recentAttendanceProvider = FutureProvider<List<AttendanceModel>>((
+  ref,
+) async {
   final response = await ref
       .read(attendanceRepositoryProvider)
       .getHistory(page: 1, limit: 4);
   return response.items;
 });
 
-final attendanceHistoryViewModelProvider = NotifierProvider<AttendanceHistoryViewModel, AttendanceHistoryState>(
-  AttendanceHistoryViewModel.new,
-);
+final attendanceHistoryViewModelProvider =
+    NotifierProvider<AttendanceHistoryViewModel, AttendanceHistoryState>(
+      AttendanceHistoryViewModel.new,
+    );

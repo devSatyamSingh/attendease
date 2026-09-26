@@ -1,5 +1,4 @@
-/// AttendEase — parses the `data` array from
-///   GET /holidays?from=YYYY-MM-DD&to=YYYY-MM-DD
+
 class HolidayModel {
   final int holidayId;
   final DateTime holidayDate;

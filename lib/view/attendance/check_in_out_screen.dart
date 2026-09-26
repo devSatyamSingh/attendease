@@ -12,25 +12,6 @@ import '../../viewmodel/attendance_viewmodel.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 
-/// AttendEase — Check In / Check Out screen.
-///
-/// Real flow:
-/// - On screen open, location permission is primed once (`_primeLocation`)
-///   so the OS permission dialog shows up immediately rather than only
-///   when the button is tapped.
-/// - The big circular button reads its label/action from today's real
-///   attendance record (`attendanceViewModelProvider`):
-///     no record yet          -> "CHECK IN"
-///     checked in, no checkout -> "CHECK OUT"
-///     checked out             -> disabled, "Done for today"
-///   The backend enforces one check-in and one check-out per calendar
-///   day anyway — this just mirrors that so the button never lets the
-///   employee try an action that would fail.
-/// - Every tap goes through [LocationService.getCurrentLocation], which
-///   already asks for permission, checks GPS is on, and rejects a fix
-///   that's too inaccurate — so a location/permission problem simply
-///   surfaces as the normal error snackbar and the action never reaches
-///   the server.
 class CheckInScreen extends ConsumerStatefulWidget {
   const CheckInScreen({super.key});
 
@@ -61,11 +42,6 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     super.dispose();
   }
 
-  /// Asks for location permission the moment this screen opens (not
-  /// only when the button is tapped) and fetches one fix to show real
-  /// GPS accuracy on the card. If permission is permanently denied, an
-  /// explanatory dialog with a direct "Open Settings" action is shown —
-  /// the employee can't be left guessing why check-in won't work.
   Future<void> _primeLocation() async {
     try {
       final position = await LocationService().getCurrentLocation();
@@ -81,8 +57,6 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _locatingPreview = false);
-      // Ab silent fail nahi hoga — kam se kam ek snackbar dikhega taaki
-      // user ko pata chale refresh ne kya try kiya aur kyun fail hua.
       AppUtils.showErrorSnackbar(
         context,
         "Couldn't get your location. Please check GPS/permission and try again.",
@@ -138,7 +112,6 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
         context,
         justCheckedIn ? "Checked in successfully." : "Checked out — see you tomorrow!",
       );
-      // Refresh the on-card GPS accuracy reading for the next glance.
       _primeLocation();
     } else {
       final error = ref.read(attendanceViewModelProvider).error;
@@ -263,7 +236,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: ready ? AppColors.successColor.withOpacity(.08) : AppColors.primaryLight,
         borderRadius: BorderRadius.circular(20),
@@ -272,8 +245,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
       child: Row(
         children: [
           Container(
-            height: 46,
-            width: 46,
+            height: 39,
+            width: 39,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: ready ? AppColors.successColor : AppColors.primaryColor,
@@ -282,7 +255,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
             child: Icon(
               ready ? Icons.gps_fixed_rounded : Icons.gps_not_fixed_rounded,
               color: AppColors.whiteColor,
-              size: 22,
+              size: 17,
             ),
           ),
           const SizedBox(width: 14),
@@ -294,7 +267,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                   _locatingPreview
                       ? "Detecting location..."
                       : (ready ? "Location ready" : "Location unavailable"),
-                  fontSize: 13,
+                  fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
                 const SizedBox(height: 2),
@@ -311,7 +284,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
               onPressed: _primeLocation,
               child: const AppText(
                 "Refresh",
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
               ),
@@ -339,9 +312,9 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
           crossAxisAlignment: CrossAxisAlignment.baseline,
           textBaseline: TextBaseline.alphabetic,
           children: [
-            AppText(_formatClock(_now), fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primaryColor),
+            AppText(_formatClock(_now), fontSize: 19, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
             const SizedBox(width: 4),
-            AppText(_formatAmPm(_now), fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primaryColor),
+            AppText(_formatAmPm(_now), fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.primaryColor),
           ],
         ),
       ),
@@ -358,8 +331,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     return Row(
       children: [
         Container(
-          height: 42,
-          width: 42,
+          height: 40,
+          width: 40,
           alignment: Alignment.center,
           decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
           child: Icon(icon, size: 20, color: iconColor),
@@ -382,7 +355,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
   // ==================== ACTION BUTTON ====================
   Widget _buildActionButton(BuildContext context, Size size, AttendanceModel? today, bool isBusy) {
-    final double buttonSize = size.width * 0.62 > 240 ? 240 : size.width * 0.62;
+    final double buttonSize = size.width * 0.50 > 160 ? 160 : size.width * 0.50;
 
     final bool checkedOut = today != null && _isCheckedOut(today);
     final bool checkedIn = today != null && _isCheckedIn(today);
@@ -438,20 +411,20 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Container(
-                      height: 48,
-                      width: 48,
+                      height: 40,
+                      width: 40,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: AppColors.whiteColor.withOpacity(.2),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(icon, color: AppColors.whiteColor, size: 26),
+                      child: Icon(icon, color: AppColors.whiteColor, size: 20),
                     ),
                     const SizedBox(height: 12),
                     AppText(
                       label,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w600,
                       color: AppColors.whiteColor,
                       letterSpacing: 1,
                     ),
@@ -532,12 +505,12 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(20)),
                 child: AppText(
                   "${_formatExpected(today?.expectedLoginTime)} – ${_formatExpected(today?.expectedLogoutTime)}",
                   fontSize: 11,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w500,
                   color: AppColors.primaryColor,
                 ),
               ),
@@ -622,16 +595,13 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
               ),
             ),
           ),
-          AppText(trailing, fontSize: 12, fontWeight: FontWeight.w600, color: trailingColor),
+          AppText(trailing, fontSize: 11, fontWeight: FontWeight.w500, color: trailingColor),
         ],
       ),
     );
   }
 }
 
-/// Radar-style pulsing ring drawn behind the check-in/check-out button
-/// while it's actionable — two rings offset in phase, each expanding
-/// outward and fading as it grows, looping continuously.
 class _PulsingRing extends StatefulWidget {
   final double size;
   final Color color;

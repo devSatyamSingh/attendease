@@ -1,5 +1,4 @@
-/// AttendEase — the `user` object inside the login response
-/// (`{ "id", "role", "name" }`).
+
 class UserModel {
   final int id;
   final String role; // "EMPLOYEE"

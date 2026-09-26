@@ -1,7 +1,4 @@
-/// AttendEase — device payload sent to the backend on login and on a
-/// device-change request. Matches the exact `device` object shape from
-/// the API spec:
-/// { "device_id", "model", "platform", "os_version", "app_version" }
+
 class DeviceModel {
   final String deviceId;
   final String model;

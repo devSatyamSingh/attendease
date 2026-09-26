@@ -6,18 +6,7 @@ import '../viewmodel/auth_viewmodel.dart';
 import '../widget/app_colors.dart';
 import '../widget/app_text.dart';
 
-/// AttendEase — Splash screen.
-///
-/// Timing is driven by ONE controller (`_progressController`) running
-/// for exactly `_splashDuration`. The left→right dot on the track is
-/// literally that controller's value, so it's guaranteed to reach the
-/// far right the same moment the controller completes — which is also
-/// the moment we resolve [sessionCheckProvider] and navigate.
-///
-/// [sessionCheckProvider] reads `StorageService().isLoggedIn()` — set
-/// true the moment AuthRepository.login() succeeds, cleared on
-/// logout/forced-logout — so this is a real "is there a session"
-/// check, not a fixed timer pretending to be one.
+
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 

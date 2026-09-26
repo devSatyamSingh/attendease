@@ -13,7 +13,6 @@ import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 import '../../widget/app_textfield.dart';
 
-
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -57,11 +56,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     if (!mounted) return;
     setState(() => _buildingDeviceInfo = false);
 
-    final success = await ref.read(authViewModelProvider.notifier).login(
-      loginId: _employeeIdController.text.trim(),
-      password: _passwordController.text,
-      device: device,
-    );
+    final success = await ref
+        .read(authViewModelProvider.notifier)
+        .login(
+          loginId: _employeeIdController.text.trim(),
+          password: _passwordController.text,
+          device: device,
+        );
 
     if (!mounted || !success) return;
 
@@ -69,9 +70,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final deviceStatus = loginResponse?.deviceStatus.toUpperCase() ?? "ACTIVE";
 
     if (deviceStatus == "PENDING") {
-      // Same device rules as Profile's "Request Change" flow — a
-      // pending device request blocks the dashboard until approved.
-      Navigator.of(context).pushReplacementNamed(RouteNames.deviceChangeRequest);
+      Navigator.of(
+        context,
+      ).pushReplacementNamed(RouteNames.deviceChangeRequest);
     } else {
       Navigator.of(context).pushReplacementNamed(RouteNames.bottombar);
     }
@@ -86,12 +87,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final authState = ref.watch(authViewModelProvider);
     final isLoading = authState.isLoading || _buildingDeviceInfo;
 
-    // Any login failure shows via the app's shared snackbar helper —
-    // same look everywhere else in the app uses AppUtils.showErrorSnackbar.
-    ref.listen<AsyncValue<LoginResponseModel?>>(authViewModelProvider, (previous, next) {
+    ref.listen<AsyncValue<LoginResponseModel?>>(authViewModelProvider, (
+      previous,
+      next,
+    ) {
       next.whenOrNull(
         error: (error, _) {
-          final message = error is Failure ? error.message : "Something went wrong. Please try again.";
+          final message = error is Failure
+              ? error.message
+              : "Something went wrong. Please try again.";
           AppUtils.showErrorSnackbar(context, message);
         },
       );
@@ -104,7 +108,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Container(
             width: double.infinity,
             height: topPadding + 280,
-            decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+            decoration: const BoxDecoration(
+              gradient: AppColors.primaryGradient,
+            ),
           ),
           SingleChildScrollView(
             child: ConstrainedBox(
@@ -134,14 +140,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: const [
                                     HeadlineText("Welcome Back", fontSize: 24),
                                     _GeofenceBadge(),
                                   ],
                                 ),
                                 const SizedBox(height: 6),
-                                const CaptionText("Sign in to mark your daily attendance"),
+                                const CaptionText(
+                                  "Sign in to mark your daily attendance",
+                                ),
                                 const SizedBox(height: 24),
                                 const AppText(
                                   "Employee ID or Work Email",
@@ -161,7 +170,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   suffixIcon: ValueListenableBuilder(
                                     valueListenable: _employeeIdController,
                                     builder: (context, value, _) {
-                                      if (value.text.trim().isEmpty) return const SizedBox.shrink();
+                                      if (value.text.trim().isEmpty)
+                                        return const SizedBox.shrink();
                                       return const Icon(
                                         Icons.check_circle_rounded,
                                         color: AppColors.successColor,
@@ -193,8 +203,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                           : Icons.visibility_outlined,
                                       color: AppColors.labelTextColor,
                                     ),
-                                    onPressed: () =>
-                                        setState(() => _obscurePassword = !_obscurePassword),
+                                    onPressed: () => setState(
+                                      () =>
+                                          _obscurePassword = !_obscurePassword,
+                                    ),
                                   ),
                                   validator: Validators.password,
                                 ),
@@ -207,7 +219,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 ),
                                 const SizedBox(height: 22),
                                 const _InfoBanner(
-                                  text: "This handset will be bound to your biometrics profile",
+                                  text:
+                                      "This handset will be bound to your biometrics profile",
                                 ),
                                 const SizedBox(height: 20),
                                 Center(
@@ -275,12 +288,17 @@ class _Header extends StatelessWidget {
                 width: iconSize,
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppColors.primaryColor.withOpacity(.9), AppColors.primaryDark],
+                    colors: [
+                      AppColors.primaryColor.withOpacity(.9),
+                      AppColors.primaryDark,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(iconSize * 0.26),
-                  border: Border.all(color: AppColors.whiteColor.withOpacity(.3)),
+                  border: Border.all(
+                    color: AppColors.whiteColor.withOpacity(.3),
+                  ),
                 ),
                 child: Icon(
                   Icons.verified_rounded,
@@ -341,7 +359,10 @@ class _GeofenceBadge extends StatelessWidget {
           Container(
             height: 6,
             width: 6,
-            decoration: const BoxDecoration(color: AppColors.successColor, shape: BoxShape.circle),
+            decoration: const BoxDecoration(
+              color: AppColors.successColor,
+              shape: BoxShape.circle,
+            ),
           ),
           const SizedBox(width: 6),
           const AppText(
@@ -371,7 +392,11 @@ class _InfoBanner extends StatelessWidget {
       ),
       child: Row(
         children: [
-          const Icon(Icons.phonelink_lock_outlined, size: 16, color: AppColors.labelTextColor),
+          const Icon(
+            Icons.phonelink_lock_outlined,
+            size: 16,
+            color: AppColors.labelTextColor,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: AppText(

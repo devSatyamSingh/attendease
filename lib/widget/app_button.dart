@@ -1,16 +1,6 @@
 import 'package:flutter/material.dart';
 import 'app_colors.dart';
 
-/// AttendEase — reusable primary button.
-/// Used for: Login, Check-In/Check-Out, Submit Leave, Submit Device
-/// Change Request, Export Report, etc.
-///
-/// Two distinct "off" states are supported, and they look different
-/// on purpose:
-/// - disabled  -> onTap is null (e.g. outside geofence, form invalid,
-///                already checked in). Button turns solid gray.
-/// - loading   -> an API call is in flight. Button keeps its real
-///                color/gradient but shows a spinner and blocks taps.
 class AppButton extends StatefulWidget {
   final String text;
   final VoidCallback? onTap;
@@ -92,9 +82,10 @@ class _AppButtonState extends State<AppButton>
       duration: const Duration(milliseconds: 90),
       reverseDuration: const Duration(milliseconds: 120),
     );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.94).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _scaleAnimation = Tween<double>(
+      begin: 1.0,
+      end: 0.94,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
   }
 
   @override
@@ -129,7 +120,9 @@ class _AppButtonState extends State<AppButton>
     final Color resolvedTextColor = _isDisabled
         ? (widget.disabledTextColor ?? AppColors.disabledTextColor)
         : (widget.textColor ??
-        (widget.outlined ? AppColors.primaryColor : AppColors.whiteColor));
+              (widget.outlined
+                  ? AppColors.primaryColor
+                  : AppColors.whiteColor));
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -149,69 +142,69 @@ class _AppButtonState extends State<AppButton>
             color: widget.outlined
                 ? AppColors.whiteColor
                 : (widget.gradient == null || _isDisabled
-                ? resolvedFillColor
-                : null),
+                      ? resolvedFillColor
+                      : null),
             gradient: (widget.outlined || _isDisabled) ? null : widget.gradient,
             borderRadius: widget.borderRadius ?? BorderRadius.circular(16),
             border: widget.outlined
                 ? Border.all(
-              color: _isDisabled
-                  ? AppColors.disabledColor
-                  : (widget.borderColor ?? AppColors.primaryColor),
-              width: 1.4,
-            )
+                    color: _isDisabled
+                        ? AppColors.disabledColor
+                        : (widget.borderColor ?? AppColors.primaryColor),
+                    width: 1.4,
+                  )
                 : null,
             boxShadow: (widget.outlined || _isDisabled)
                 ? null
                 : (widget.boxShadow ??
-                [
-                  BoxShadow(
-                    color: (widget.color ?? AppColors.primaryColor)
-                        .withOpacity(.25),
-                    blurRadius: 7,
-                    offset: const Offset(0, 4),
-                  ),
-                ]),
+                      [
+                        BoxShadow(
+                          color: (widget.color ?? AppColors.primaryColor)
+                              .withOpacity(.25),
+                          blurRadius: 7,
+                          offset: const Offset(0, 4),
+                        ),
+                      ]),
           ),
           child: widget.loading
               ? SizedBox(
-            height: 22,
-            width: 22,
-            child: CircularProgressIndicator(
-              color: widget.outlined
-                  ? AppColors.primaryColor
-                  : AppColors.whiteColor,
-              strokeWidth: 2.5,
-            ),
-          )
-              : widget.child ??
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (widget.icon != null) ...[
-                    Icon(
-                      widget.icon,
-                      color: widget.iconColor ?? resolvedTextColor,
-                      size: widget.iconSize ?? 20,
-                    ),
-                    const SizedBox(width: 10),
-                  ],
-                  Flexible(
-                    child: Text(
-                      widget.text,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: widget.fontSize ?? 16,
-                        color: resolvedTextColor,
-                        fontWeight: widget.fontWeight ?? FontWeight.w600,
-                        fontFamily: "Poppins",
-                        letterSpacing: .3,
-                      ),
-                    ),
+                  height: 22,
+                  width: 22,
+                  child: CircularProgressIndicator(
+                    color: widget.outlined
+                        ? AppColors.primaryColor
+                        : AppColors.whiteColor,
+                    strokeWidth: 2.5,
                   ),
-                ],
-              ),
+                )
+              : widget.child ??
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (widget.icon != null) ...[
+                          Icon(
+                            widget.icon,
+                            color: widget.iconColor ?? resolvedTextColor,
+                            size: widget.iconSize ?? 20,
+                          ),
+                          const SizedBox(width: 10),
+                        ],
+                        Flexible(
+                          child: Text(
+                            widget.text,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: widget.fontSize ?? 16,
+                              color: resolvedTextColor,
+                              fontWeight: widget.fontWeight ?? FontWeight.w600,
+                              fontFamily: "Poppins",
+                              letterSpacing: .3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
         ),
       ),
     );

@@ -1,11 +1,6 @@
 import '../utils/date_formatter.dart';
 
-/// AttendEase — parses the `data` object returned by all four
-/// attendance endpoints (they're all the SAME shape):
-///   POST /attendance/check-in
-///   POST /attendance/check-out
-///   GET  /attendance/today
-///   GET  /attendance/history  (one per item in `items`)
+
 class AttendanceModel {
   final int attendanceId;
   final int employeeId;
@@ -84,9 +79,6 @@ class AttendanceModel {
       updatedAt: DateFormatter.parseApiDateTime(json['updated_at'] as String?),
     );
   }
-
-  // check_in_latitude etc. come back as STRINGS ("28.6074070"), not
-  // numbers — this handles both so a backend fix later doesn't break us.
   static double? _parseDouble(dynamic value) {
     if (value == null) return null;
     if (value is num) return value.toDouble();
@@ -118,8 +110,6 @@ class AttendancePaginationModel {
   }
 }
 
-/// AttendEase — full `data` block of `GET /attendance/history`:
-/// `{ "items": [...], "pagination": {...} }`.
 class AttendanceHistoryResponseModel {
   final List<AttendanceModel> items;
   final AttendancePaginationModel pagination;

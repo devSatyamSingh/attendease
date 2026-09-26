@@ -4,10 +4,6 @@ import '../api/api_urls.dart';
 import '../core/errors/failure.dart';
 import '../model/holiday_model.dart';
 
-/// AttendEase — holiday repository.
-///
-/// NOTE: add this to your `ApiUrls` class if it isn't there yet:
-///   static const String holidays = "/holidays";
 class HolidayRepository {
   final ApiService _apiService;
 

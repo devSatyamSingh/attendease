@@ -6,7 +6,6 @@ double? _parseDouble(dynamic value) {
   return double.tryParse(value.toString());
 }
 
-/// AttendEase — `GET /leave/types` — `data` array item.
 class LeaveTypeModel {
   final int leaveTypeId;
   final String name;
@@ -63,10 +62,6 @@ class LeaveBalanceModel {
   }
 }
 
-/// AttendEase — one leave request. Same shape returned by:
-///   POST /leave/requests            (the applied request)
-///   GET  /leave/history             (one per item in `items`)
-///   GET  /leave/requests/{id}
 class LeaveRequestModel {
   final int leaveRequestId;
   final int employeeId;

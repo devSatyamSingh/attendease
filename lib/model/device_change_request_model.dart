@@ -1,8 +1,5 @@
 import '../utils/date_formatter.dart';
 
-/// AttendEase — parses both the `pending_request` object inside
-/// `GET /devices/status`, and the `data` block returned by
-/// `POST /devices/change-request` (same shape).
 class DeviceChangeRequestModel {
   final int deviceChangeRequestId;
   final int employeeId;

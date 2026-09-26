@@ -2,9 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'app_colors.dart';
 
-/// AttendEase — reusable Text widget.
-/// Use this everywhere instead of raw `Text(...)` so font family
-/// and default styling stay consistent app-wide.
 class AppText extends StatelessWidget {
   final String text;
   final double? fontSize;
@@ -108,8 +105,6 @@ class HeadlineText extends StatelessWidget {
   }
 }
 
-/// Small caption/label preset — used under stat cards, timestamps,
-/// "Applied on 15 Sep" style secondary text.
 class CaptionText extends StatelessWidget {
   final String text;
   final Color? color;

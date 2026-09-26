@@ -13,13 +13,8 @@ import '../../widget/app_colors.dart';
 import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
 import 'holiday_screen.dart';
+import 'logout_dialog.dart';
 
-/// AttendEase — Profile screen.
-/// Watches [profileViewModelProvider] (the real `GET /profile` call)
-/// and [deviceViewModelProvider] (`GET /devices/status`) — each
-/// renders its own loading/error/data state independently, so a slow
-/// device-status call never blocks the employment-details card from
-/// showing, and vice versa.
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
@@ -43,8 +38,11 @@ class ProfileScreen extends ConsumerWidget {
               child: profileAsync.when(
                 loading: () => const _ProfileSkeleton(),
                 error: (error, _) => _ProfileErrorState(
-                  message: error is Failure ? error.message : "Couldn't load your profile.",
-                  onRetry: () => ref.read(profileViewModelProvider.notifier).refresh(),
+                  message: error is Failure
+                      ? error.message
+                      : "Couldn't load your profile.",
+                  onRetry: () =>
+                      ref.read(profileViewModelProvider.notifier).refresh(),
                 ),
                 data: (profile) => _ProfileContent(profile: profile),
               ),
@@ -113,18 +111,26 @@ class _ProfileContent extends ConsumerWidget {
         children: [
           Row(
             children: [
-              _buildCircleIconButton(
-                icon: Icons.arrow_back_rounded,
+              InkWell(
                 onTap: () => Navigator.maybePop(context),
+                customBorder: const CircleBorder(),
+                child: const Padding(
+                  padding: EdgeInsets.all(6),
+                  child: Icon(
+                    Icons.arrow_back_rounded,
+                    color: AppColors.whiteColor,
+                  ),
+                ),
               ),
-              SizedBox(width: 15,),
-              AppText("Profile", fontSize: 18, fontWeight: FontWeight.w600, color: AppColors.whiteColor),
-              // _buildCircleIconButton(
-              //   icon: Icons.edit_rounded,
-              //   onTap: () {
-              //     // TODO: Navigator.pushNamed(context, AppRoutes.editProfile);
-              //   },
-              // ),
+              const Expanded(
+                child: AppText(
+                  "Profile",
+                  fontSize: 17,
+                  color: AppColors.whiteColor,
+                  fontWeight: FontWeight.w600,
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 18),
@@ -135,7 +141,10 @@ class _ProfileContent extends ConsumerWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: AppColors.whiteColor.withOpacity(.18),
-              border: Border.all(color: AppColors.whiteColor.withOpacity(.6), width: 2),
+              border: Border.all(
+                color: AppColors.whiteColor.withOpacity(.6),
+                width: 2,
+              ),
             ),
             child: AppText(
               initials,
@@ -145,7 +154,12 @@ class _ProfileContent extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 14),
-          AppText(profile.name, fontSize: 20, fontWeight: FontWeight.w700, color: AppColors.whiteColor),
+          AppText(
+            profile.name,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            color: AppColors.whiteColor,
+          ),
           const SizedBox(height: 4),
           AppText(
             profile.email,
@@ -165,7 +179,11 @@ class _ProfileContent extends ConsumerWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.badge_outlined, size: 14, color: AppColors.whiteColor),
+                const Icon(
+                  Icons.badge_outlined,
+                  size: 14,
+                  color: AppColors.whiteColor,
+                ),
                 const SizedBox(width: 6),
                 AppText(
                   profile.employeeCode,
@@ -182,13 +200,21 @@ class _ProfileContent extends ConsumerWidget {
   }
 
   String _initialsOf(String name) {
-    final parts = name.trim().split(RegExp(r"\s+")).where((p) => p.isNotEmpty).toList();
+    final parts = name
+        .trim()
+        .split(RegExp(r"\s+"))
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return "?";
     if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
-    return (parts.first.substring(0, 1) + parts.last.substring(0, 1)).toUpperCase();
+    return (parts.first.substring(0, 1) + parts.last.substring(0, 1))
+        .toUpperCase();
   }
 
-  Widget _buildCircleIconButton({required IconData icon, required VoidCallback onTap}) {
+  Widget _buildCircleIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
     return InkWell(
       onTap: onTap,
       customBorder: const CircleBorder(),
@@ -205,14 +231,13 @@ class _ProfileContent extends ConsumerWidget {
     );
   }
 
-
   Widget _buildHolidayCard(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(builder: (_) => const HolidaysScreen()),
-        );
+        Navigator.of(
+          context,
+        ).push(MaterialPageRoute(builder: (_) => const HolidaysScreen()));
       },
       child: Container(
         width: double.infinity,
@@ -228,26 +253,41 @@ class _ProfileContent extends ConsumerWidget {
               height: 38,
               width: 38,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(11)),
-              child: const Icon(Icons.celebration_rounded, size: 18, color: AppColors.primaryColor),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(
+                Icons.celebration_rounded,
+                size: 18,
+                color: AppColors.primaryColor,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppText("Company Holidays", fontSize: 14, fontWeight: FontWeight.w700),
+                  AppText(
+                    "Company Holidays",
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                  ),
                   const SizedBox(height: 2),
                   CaptionText("View this year's holiday calendar"),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, color: AppColors.placeholderColor),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.placeholderColor,
+            ),
           ],
         ),
       ),
     );
   }
+
   // ---- Employment details (real ProfileModel fields) ----
   Widget _buildEmploymentDetailsCard(ProfileModel profile) {
     return Container(
@@ -264,7 +304,11 @@ class _ProfileContent extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              AppText("Employment Details", fontSize: 15, fontWeight: FontWeight.w700),
+              AppText(
+                "Employment Details",
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
               _buildDotChip(
                 profile.status,
                 AppColors.requestStatusColor(profile.status),
@@ -272,15 +316,23 @@ class _ProfileContent extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 14),
-          _buildDetailRow(icon: Icons.mail_outline_rounded, label: "Work Email", value: profile.email),
+          _buildDetailRow(
+            icon: Icons.mail_outline_rounded,
+            label: "Work Email",
+            value: profile.email,
+          ),
           const Divider(height: 26),
-          _buildDetailRow(icon: Icons.call_outlined, label: "Contact Phone", value: profile.phone),
+          _buildDetailRow(
+            icon: Icons.call_outlined,
+            label: "Contact Phone",
+            value: profile.phone,
+          ),
           const Divider(height: 26),
           _buildDetailRow(
             icon: Icons.access_time_rounded,
             label: "Expected Timing",
             value:
-            "${_formatTime(profile.expectedLoginTime)} – ${_formatTime(profile.expectedLogoutTime)}",
+                "${_formatTime(profile.expectedLoginTime)} – ${_formatTime(profile.expectedLogoutTime)}",
           ),
           const Divider(height: 26),
           _buildDetailRow(
@@ -303,7 +355,11 @@ class _ProfileContent extends ConsumerWidget {
     }
   }
 
-  Widget _buildDetailRow({required IconData icon, required String label, required String value}) {
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -312,7 +368,10 @@ class _ProfileContent extends ConsumerWidget {
           width: 38,
           alignment: Alignment.center,
           margin: const EdgeInsets.only(right: 12),
-          decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(10)),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(10),
+          ),
           child: Icon(icon, size: 18, color: AppColors.primaryColor),
         ),
         Expanded(
@@ -321,7 +380,13 @@ class _ProfileContent extends ConsumerWidget {
             children: [
               CaptionText(label),
               const SizedBox(height: 2),
-              AppText(value, fontSize: 14, fontWeight: FontWeight.w600, maxLines: 1, overflow: TextOverflow.ellipsis),
+              AppText(
+                value,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ],
           ),
         ),
@@ -345,12 +410,22 @@ class _ProfileContent extends ConsumerWidget {
         loading: () => const _DeviceCardSkeleton(),
         error: (error, _) => Row(
           children: [
-            const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.errorColor),
+            const Icon(
+              Icons.error_outline_rounded,
+              size: 18,
+              color: AppColors.errorColor,
+            ),
             const SizedBox(width: 8),
             Expanded(child: CaptionText("Couldn't load device info")),
             TextButton(
-              onPressed: () => ref.read(deviceViewModelProvider.notifier).refresh(),
-              child: const AppText("Retry", fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primaryColor),
+              onPressed: () =>
+                  ref.read(deviceViewModelProvider.notifier).refresh(),
+              child: const AppText(
+                "Retry",
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.primaryColor,
+              ),
             ),
           ],
         ),
@@ -359,8 +434,12 @@ class _ProfileContent extends ConsumerWidget {
     );
   }
 
-  Widget _buildDeviceCardContent(BuildContext context, ActiveDeviceModel? device) {
-    final bool bound = device != null && device.status.toUpperCase() == "ACTIVE";
+  Widget _buildDeviceCardContent(
+    BuildContext context,
+    ActiveDeviceModel? device,
+  ) {
+    final bool bound =
+        device != null && device.status.toUpperCase() == "ACTIVE";
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -368,25 +447,42 @@ class _ProfileContent extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            AppText("Registered Device", fontSize: 15, fontWeight: FontWeight.w700),
+            AppText(
+              "Registered Device",
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
             _buildDotChip(
-              device == null ? "Not Registered" : (bound ? "Bound & Active" : device.status),
-              device == null ? AppColors.labelTextColor : AppColors.requestStatusColor(device.status),
+              device == null
+                  ? "Not Registered"
+                  : (bound ? "Bound & Active" : device.status),
+              device == null
+                  ? AppColors.labelTextColor
+                  : AppColors.requestStatusColor(device.status),
             ),
           ],
         ),
         const SizedBox(height: 14),
         Container(
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(14)),
+          decoration: BoxDecoration(
+            color: AppColors.primaryLight,
+            borderRadius: BorderRadius.circular(14),
+          ),
           child: Row(
             children: [
               Container(
                 height: 40,
                 width: 40,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.whiteColor, borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.phone_iphone_rounded, color: AppColors.primaryColor),
+                decoration: BoxDecoration(
+                  color: AppColors.whiteColor,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.phone_iphone_rounded,
+                  color: AppColors.primaryColor,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -415,7 +511,11 @@ class _ProfileContent extends ConsumerWidget {
         const SizedBox(height: 12),
         Row(
           children: [
-            const Icon(Icons.shield_outlined, size: 14, color: AppColors.labelTextColor),
+            const Icon(
+              Icons.shield_outlined,
+              size: 14,
+              color: AppColors.labelTextColor,
+            ),
             const SizedBox(width: 6),
             const Expanded(child: CaptionText("Zero-Trust Device Binding")),
             // TextButton(
@@ -445,13 +545,25 @@ class _ProfileContent extends ConsumerWidget {
   Widget _buildDotChip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(height: 6, width: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+            height: 6,
+            width: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 5),
-          AppText(label, fontSize: 11, fontWeight: FontWeight.w700, color: color),
+          AppText(
+            label,
+            fontSize: 11,
+            fontWeight: FontWeight.w700,
+            color: color,
+          ),
         ],
       ),
     );
@@ -461,7 +573,10 @@ class _ProfileContent extends ConsumerWidget {
   Widget _buildSettingsList(BuildContext context) {
     final items = [
       _SettingsItem(Icons.password_rounded, "Change Security PIN & Password"),
-      _SettingsItem(Icons.notifications_none_rounded, "Notification & Geofence Alerts"),
+      _SettingsItem(
+        Icons.notifications_none_rounded,
+        "Notification & Geofence Alerts",
+      ),
       _SettingsItem(Icons.support_agent_rounded, "Help & Support Desk"),
       _SettingsItem(Icons.info_outline_rounded, "About AttendEase v2.4.0"),
     ];
@@ -483,21 +598,41 @@ class _ProfileContent extends ConsumerWidget {
                 },
                 borderRadius: BorderRadius.vertical(
                   top: index == 0 ? const Radius.circular(18) : Radius.zero,
-                  bottom: index == items.length - 1 ? const Radius.circular(18) : Radius.zero,
+                  bottom: index == items.length - 1
+                      ? const Radius.circular(18)
+                      : Radius.zero,
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 14,
+                  ),
                   child: Row(
                     children: [
-                      Icon(item.icon, size: 20, color: AppColors.headlineTextColor),
+                      Icon(
+                        item.icon,
+                        size: 20,
+                        color: AppColors.headlineTextColor,
+                      ),
                       const SizedBox(width: 14),
-                      Expanded(child: AppText(item.label, fontSize: 14, fontWeight: FontWeight.w600)),
-                      const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.placeholderColor),
+                      Expanded(
+                        child: AppText(
+                          item.label,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: AppColors.placeholderColor,
+                      ),
                     ],
                   ),
                 ),
               ),
-              if (index != items.length - 1) const Divider(height: 1, indent: 16, endIndent: 16),
+              if (index != items.length - 1)
+                const Divider(height: 1, indent: 16, endIndent: 16),
             ],
           );
         }),
@@ -506,6 +641,9 @@ class _ProfileContent extends ConsumerWidget {
   }
 
   // ---- Sign out ----
+// Add this import at the top of the file:
+// import 'animated_confirm_dialog.dart';
+
   Widget _buildSignOutButton(BuildContext context, WidgetRef ref) {
     return AppButton(
       text: "Sign Out from Device",
@@ -519,38 +657,25 @@ class _ProfileContent extends ConsumerWidget {
   }
 
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: const AppText("Sign out?", fontSize: 16, fontWeight: FontWeight.w700),
-        content: const AppText(
-          "You'll need to sign in again to mark attendance on this device.",
-          fontSize: 13,
-          color: AppColors.labelTextColor,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const AppText("Cancel", fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const AppText(
-              "Sign Out",
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: AppColors.errorColor,
-            ),
-          ),
-        ],
-      ),
+    final confirmed = await AnimatedConfirmDialog.show(
+      context,
+      icon: Icons.logout_rounded,
+      iconColor: AppColors.errorColor,
+      title: "Sign out?",
+      message:
+      "You'll need to sign in again to mark attendance on this device.",
+      cancelText: "Cancel",
+      confirmText: "Sign Out",
+      confirmColor: AppColors.errorColor,
     );
 
     if (confirmed != true) return;
 
     await ref.read(authViewModelProvider.notifier).logout();
     if (!context.mounted) return;
-    Navigator.of(context).pushNamedAndRemoveUntil(RouteNames.login, (route) => false);
+    Navigator.of(
+      context,
+    ).pushNamedAndRemoveUntil(RouteNames.login, (route) => false);
   }
 }
 
@@ -617,7 +742,11 @@ class _ProfileSkeleton extends StatelessWidget {
   }
 
   Widget _shimmerCircle(double size, {required Color baseColor}) {
-    return Container(height: size, width: size, decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle));
+    return Container(
+      height: size,
+      width: size,
+      decoration: BoxDecoration(color: baseColor, shape: BoxShape.circle),
+    );
   }
 
   Widget _cardSkeleton({required int rows}) {
@@ -705,7 +834,11 @@ class _ProfileErrorState extends StatelessWidget {
                       color: AppColors.errorColor.withOpacity(.1),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.wifi_off_rounded, size: 28, color: AppColors.errorColor),
+                    child: const Icon(
+                      Icons.wifi_off_rounded,
+                      size: 28,
+                      color: AppColors.errorColor,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   AppText(
@@ -724,7 +857,11 @@ class _ProfileErrorState extends StatelessWidget {
                   const SizedBox(height: 20),
                   SizedBox(
                     width: 160,
-                    child: AppButton(text: "Retry", icon: Icons.refresh_rounded, onTap: onRetry),
+                    child: AppButton(
+                      text: "Retry",
+                      icon: Icons.refresh_rounded,
+                      onTap: onRetry,
+                    ),
                   ),
                 ],
               ),

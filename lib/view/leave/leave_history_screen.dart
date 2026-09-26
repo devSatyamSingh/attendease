@@ -9,9 +9,7 @@ import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 import 'leave_ui_helper.dart';
 
-/// AttendEase — "Leave History" screen.
-/// Wired to [leaveHistoryViewModelProvider] (`GET /leave/history`),
-/// filterable by status; counts from [leaveStatusCountsProvider].
+
 class LeaveHistoryScreen extends ConsumerStatefulWidget {
   const LeaveHistoryScreen({super.key});
 

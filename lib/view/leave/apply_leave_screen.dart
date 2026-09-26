@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../../core/errors/failure.dart';
 import '../../model/leave_model.dart';
 import '../../utils/app_utils.dart';
@@ -23,7 +24,6 @@ String _durationApiValue(_Duration d) {
   }
 }
 
-
 class ApplyLeaveScreen extends ConsumerStatefulWidget {
   const ApplyLeaveScreen({super.key});
 
@@ -33,7 +33,12 @@ class ApplyLeaveScreen extends ConsumerStatefulWidget {
 
 class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   static const _maxReasonLength = 200;
-  static const _quickReasons = ["Personal errand", "Medical", "Family travel", "Festival"];
+  static const _quickReasons = [
+    "Personal errand",
+    "Medical",
+    "Family travel",
+    "Festival",
+  ];
 
   final TextEditingController _reasonController = TextEditingController();
 
@@ -43,11 +48,15 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   DateTime _endDate = DateTime.now();
 
   bool get _isSingleDay =>
-      _startDate.year == _endDate.year && _startDate.month == _endDate.month && _startDate.day == _endDate.day;
+      _startDate.year == _endDate.year &&
+          _startDate.month == _endDate.month &&
+          _startDate.day == _endDate.day;
 
   int get _inclusiveDayCount => _endDate.difference(_startDate).inDays + 1;
 
-  double get _totalDays => (_isSingleDay && _duration != _Duration.fullDay) ? 0.5 : _inclusiveDayCount.toDouble();
+  double get _totalDays => (_isSingleDay && _duration != _Duration.fullDay)
+      ? 0.5
+      : _inclusiveDayCount.toDouble();
 
   @override
   void initState() {
@@ -61,9 +70,14 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
     super.dispose();
   }
 
-  LeaveBalanceModel? _balanceFor(List<LeaveBalanceModel> balances, int? leaveTypeId) {
+  LeaveBalanceModel? _balanceFor(
+      List<LeaveBalanceModel> balances,
+      int? leaveTypeId,
+      ) {
     if (leaveTypeId == null) return null;
-    final matches = balances.where((b) => b.leaveTypeId == leaveTypeId).toList();
+    final matches = balances
+        .where((b) => b.leaveTypeId == leaveTypeId)
+        .toList();
     return matches.isNotEmpty ? matches.first : null;
   }
 
@@ -74,11 +88,16 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
     }
     final balance = _balanceFor(balances, _selectedType!.leaveTypeId);
     if (balance != null && _totalDays > balance.remainingDays) {
-      AppUtils.showErrorSnackbar(context, "You only have ${balance.remainingDays} day(s) left for this leave type.");
+      AppUtils.showErrorSnackbar(
+        context,
+        "You only have ${balance.remainingDays} day(s) left for this leave type.",
+      );
       return;
     }
 
-    final success = await ref.read(applyLeaveViewModelProvider.notifier).submit(
+    final success = await ref
+        .read(applyLeaveViewModelProvider.notifier)
+        .submit(
       leaveTypeId: _selectedType!.leaveTypeId,
       startDate: _startDate,
       endDate: _endDate,
@@ -95,17 +114,20 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
       final error = ref.read(applyLeaveViewModelProvider).error;
       AppUtils.showErrorSnackbar(
         context,
-        error is Failure ? error.message : "Couldn't submit your request. Please try again.",
+        error is Failure
+            ? error.message
+            : "Couldn't submit your request. Please try again.",
       );
     }
   }
 
+  // ==================== DATE PICKING (table_calendar) ====================
   Future<void> _pickDate({required bool isStart}) async {
     final initial = isStart ? _startDate : _endDate;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: initial.isBefore(DateTime.now()) ? DateTime.now() : initial,
-      firstDate: DateTime.now(),
+    final firstDate = DateTime.now();
+    final picked = await _showCalendarSheet(
+      initialDate: initial.isBefore(firstDate) ? firstDate : initial,
+      firstDate: firstDate,
       lastDate: DateTime.now().add(const Duration(days: 365)),
     );
     if (picked == null) return;
@@ -118,6 +140,23 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
         _endDate = picked.isBefore(_startDate) ? _startDate : picked;
       }
     });
+  }
+
+  Future<DateTime?> _showCalendarSheet({
+    required DateTime initialDate,
+    required DateTime firstDate,
+    required DateTime lastDate,
+  }) {
+    return showModalBottomSheet<DateTime>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => _CalendarPickerSheet(
+        initialDate: initialDate,
+        firstDate: firstDate,
+        lastDate: lastDate,
+      ),
+    );
   }
 
   Future<void> _pickLeaveType(List<LeaveTypeModel> types) async {
@@ -138,9 +177,16 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
                 height: 4,
                 width: 40,
                 margin: const EdgeInsets.only(bottom: 14),
-                decoration: BoxDecoration(color: AppColors.borderColor, borderRadius: BorderRadius.circular(4)),
+                decoration: BoxDecoration(
+                  color: AppColors.borderColor,
+                  borderRadius: BorderRadius.circular(4),
+                ),
               ),
-              const AppText("Select Leave Type", fontSize: 15, fontWeight: FontWeight.w600),
+              const AppText(
+                "Select Leave Type",
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
               const SizedBox(height: 10),
               ...types.map((t) {
                 final color = LeaveUiHelper.colorForCode(t.code);
@@ -150,11 +196,23 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
                     height: 40,
                     width: 40,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(12)),
-                    child: Icon(LeaveUiHelper.iconForCode(t.code), color: color),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(
+                      LeaveUiHelper.iconForCode(t.code),
+                      color: color,
+                    ),
                   ),
-                  title: AppText(t.name, fontSize: 14, fontWeight: FontWeight.w600),
-                  subtitle: CaptionText("${t.defaultAnnualDays.toStringAsFixed(0)} days/year"),
+                  title: AppText(
+                    t.name,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  subtitle: CaptionText(
+                    "${t.defaultAnnualDays.toStringAsFixed(0)} days/year",
+                  ),
                   onTap: () => Navigator.pop(sheetContext, t),
                 );
               }),
@@ -184,13 +242,22 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
                 ? const _ApplyLeaveSkeleton()
                 : (typesAsync.hasError || balanceAsync.hasError)
                 ? _buildErrorState(
-              typesAsync.hasError ? typesAsync.error! : balanceAsync.error!,
+              typesAsync.hasError
+                  ? typesAsync.error!
+                  : balanceAsync.error!,
                   () {
                 ref.refresh(leaveTypesProvider);
-                ref.read(leaveBalanceViewModelProvider.notifier).refresh();
+                ref
+                    .read(leaveBalanceViewModelProvider.notifier)
+                    .refresh();
               },
             )
-                : _buildForm(context, typesAsync.value!, balanceAsync.value!, isSubmitting),
+                : _buildForm(
+              context,
+              typesAsync.value!,
+              balanceAsync.value!,
+              isSubmitting,
+            ),
           ),
         ),
       ),
@@ -198,7 +265,11 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   }
 
   Widget _buildForm(
-      BuildContext context, List<LeaveTypeModel> types, List<LeaveBalanceModel> balances, bool isSubmitting) {
+      BuildContext context,
+      List<LeaveTypeModel> types,
+      List<LeaveBalanceModel> balances,
+      bool isSubmitting,
+      ) {
     // Ensure a default selection once types load.
     if (_selectedType == null && types.isNotEmpty) {
       _selectedType = types.first;
@@ -209,9 +280,9 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
         _buildTopBar(context),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         if (balance != null) _buildBalanceHero(balance),
-        const SizedBox(height: 22),
+        const SizedBox(height: 10),
         _buildLabel("Leave Type", required: true),
         const SizedBox(height: 10),
         _buildLeaveTypeSelector(types, balance),
@@ -226,15 +297,19 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
         const SizedBox(height: 22),
         _buildComputationCard(balance),
         const SizedBox(height: 22),
-        _buildLabel("Reason for Leave", optional: true, trailing: "${_reasonController.text.length}/$_maxReasonLength"),
+        _buildLabel(
+          "Reason for Leave",
+          optional: true,
+          trailing: "${_reasonController.text.length}/$_maxReasonLength",
+        ),
         const SizedBox(height: 10),
         _buildReasonField(),
         const SizedBox(height: 10),
         _buildQuickReasonChips(),
         const SizedBox(height: 22),
         _buildSubmitButton(balances, isSubmitting),
-        const SizedBox(height: 10),
-        _buildSubmitCaption(),
+        // const SizedBox(height: 10),
+        // _buildSubmitCaption(),
       ],
     );
   }
@@ -246,10 +321,21 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
         InkWell(
           onTap: () => Navigator.maybePop(context),
           customBorder: const CircleBorder(),
-          child: const Padding(padding: EdgeInsets.all(6), child: Icon(Icons.arrow_back_rounded, color: AppColors.headlineTextColor)),
+          child: const Padding(
+            padding: EdgeInsets.all(6),
+            child: Icon(
+              Icons.arrow_back_rounded,
+              color: AppColors.headlineTextColor,
+            ),
+          ),
         ),
         const Expanded(
-          child: AppText("Apply for Leave", fontSize: 15, fontWeight: FontWeight.w600, textAlign: TextAlign.center),
+          child: AppText(
+            "Apply for Leave",
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            textAlign: TextAlign.center,
+          ),
         ),
         const SizedBox(width: 32),
       ],
@@ -258,7 +344,9 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
 
   // ==================== BALANCE HERO ====================
   Widget _buildBalanceHero(LeaveBalanceModel balance) {
-    final percentLeft = balance.allocatedDays == 0 ? 0.0 : balance.remainingDays / balance.allocatedDays;
+    final percentLeft = balance.allocatedDays == 0
+        ? 0.0
+        : balance.remainingDays / balance.allocatedDays;
 
     return Container(
       width: double.infinity,
@@ -266,7 +354,13 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: [BoxShadow(color: AppColors.primaryColor.withOpacity(.3), blurRadius: 16, offset: const Offset(0, 8))],
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withOpacity(.3),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -274,23 +368,43 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
             height: 46,
             width: 46,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.whiteColor.withOpacity(.15), shape: BoxShape.circle),
-            child: const Icon(Icons.wb_sunny_outlined, color: AppColors.whiteColor),
+            decoration: BoxDecoration(
+              color: AppColors.whiteColor.withOpacity(.15),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.wb_sunny_outlined,
+              color: AppColors.whiteColor,
+            ),
           ),
           const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppText("AVAILABLE BALANCE", fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: 1.2, color: AppColors.whiteColor.withOpacity(.75)),
+                AppText(
+                  "AVAILABLE BALANCE",
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                  color: AppColors.whiteColor.withOpacity(.75),
+                ),
                 const SizedBox(height: 4),
-                AppText("${balance.remainingDays.toStringAsFixed(0)} Days Left", fontSize: 15, fontWeight: FontWeight.w500, color: AppColors.whiteColor),
+                AppText(
+                  "${balance.remainingDays.toStringAsFixed(0)} Days Left",
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.whiteColor,
+                ),
               ],
             ),
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-            decoration: BoxDecoration(color: AppColors.whiteColor.withOpacity(.15), borderRadius: BorderRadius.circular(30)),
+            decoration: BoxDecoration(
+              color: AppColors.whiteColor.withOpacity(.15),
+              borderRadius: BorderRadius.circular(30),
+            ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -301,11 +415,18 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
                     value: percentLeft.clamp(0, 1),
                     strokeWidth: 2.2,
                     backgroundColor: AppColors.whiteColor.withOpacity(.25),
-                    valueColor: const AlwaysStoppedAnimation<Color>(AppColors.whiteColor),
+                    valueColor: const AlwaysStoppedAnimation<Color>(
+                      AppColors.whiteColor,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 6),
-                AppText("${(percentLeft * 100).round()}% Left", fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.whiteColor),
+                AppText(
+                  "${(percentLeft * 100).round()}% Left",
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.whiteColor,
+                ),
               ],
             ),
           ),
@@ -315,15 +436,30 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   }
 
   // ==================== LABEL HELPERS ====================
-  Widget _buildLabel(String text, {bool required = false, bool optional = false, String? trailing}) {
+  Widget _buildLabel(
+      String text, {
+        bool required = false,
+        bool optional = false,
+        String? trailing,
+      }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Row(
           children: [
             AppText(text, fontSize: 12, fontWeight: FontWeight.w600),
-            if (required) const AppText(" *", fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.errorColor),
-            if (optional) const Padding(padding: EdgeInsets.only(left: 4), child: CaptionText("(Optional)")),
+            if (required)
+              const AppText(
+                " *",
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AppColors.errorColor,
+              ),
+            if (optional)
+              const Padding(
+                padding: EdgeInsets.only(left: 4),
+                child: CaptionText("(Optional)"),
+              ),
           ],
         ),
         if (trailing != null) CaptionText(trailing),
@@ -332,37 +468,61 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   }
 
   // ==================== LEAVE TYPE ====================
-  Widget _buildLeaveTypeSelector(List<LeaveTypeModel> types, LeaveBalanceModel? balance) {
+  Widget _buildLeaveTypeSelector(
+      List<LeaveTypeModel> types,
+      LeaveBalanceModel? balance,
+      ) {
     final selected = _selectedType;
     return InkWell(
       borderRadius: BorderRadius.circular(16),
       onTap: () => _pickLeaveType(types),
       child: Container(
         padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(color: AppColors.cardBgColor, borderRadius: BorderRadius.circular(16), border: Border.all(color: AppColors.borderColor)),
+        decoration: BoxDecoration(
+          color: AppColors.cardBgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderColor),
+        ),
         child: Row(
           children: [
             Container(
               height: 40,
               width: 40,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(12)),
-              child: Icon(selected != null ? LeaveUiHelper.iconForCode(selected.code) : Icons.beach_access_rounded, color: AppColors.primaryColor),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                selected != null
+                    ? LeaveUiHelper.iconForCode(selected.code)
+                    : Icons.beach_access_rounded,
+                color: AppColors.primaryColor,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppText(selected?.name ?? "Select leave type", fontSize: 15, fontWeight: FontWeight.w500),
+                  AppText(
+                    selected?.name ?? "Select leave type",
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
                   const SizedBox(height: 2),
-                  CaptionText(balance != null
-                      ? "${balance.remainingDays.toStringAsFixed(0)} of ${balance.allocatedDays.toStringAsFixed(0)} days available"
-                      : "Tap to choose"),
+                  CaptionText(
+                    balance != null
+                        ? "${balance.remainingDays.toStringAsFixed(0)} of ${balance.allocatedDays.toStringAsFixed(0)} days available"
+                        : "Tap to choose",
+                  ),
                 ],
               ),
             ),
-            const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.labelTextColor),
+            const Icon(
+              Icons.keyboard_arrow_down_rounded,
+              color: AppColors.labelTextColor,
+            ),
           ],
         ),
       ),
@@ -378,9 +538,18 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
         Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.calendar_month_rounded, size: 14, color: AppColors.primaryColor),
+            const Icon(
+              Icons.calendar_month_rounded,
+              size: 14,
+              color: AppColors.primaryColor,
+            ),
             const SizedBox(width: 4),
-            AppText(_isSingleDay ? "Single-day selected" : "Multi-day selected", fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
+            AppText(
+              _isSingleDay ? "Single-day selected" : "Multi-day selected",
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
           ],
         ),
       ],
@@ -390,25 +559,72 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   Widget _buildDateRow(BuildContext context) {
     return Row(
       children: [
-        Expanded(child: _buildDateBox("START DATE", _startDate, Icons.calendar_today_rounded, () => _pickDate(isStart: true))),
+        Expanded(
+          child: _buildDateBox(
+            "START DATE",
+            _startDate,
+            Icons.calendar_today_rounded,
+                () => _pickDate(isStart: true),
+          ),
+        ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8),
           child: Container(
             height: 30,
             width: 30,
             alignment: Alignment.center,
-            decoration: const BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-            child: const Icon(Icons.arrow_forward_rounded, size: 15, color: AppColors.primaryColor),
+            decoration: const BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.arrow_forward_rounded,
+              size: 15,
+              color: AppColors.primaryColor,
+            ),
           ),
         ),
-        Expanded(child: _buildDateBox("END DATE", _endDate, Icons.event_available_rounded, () => _pickDate(isStart: false))),
+        Expanded(
+          child: _buildDateBox(
+            "END DATE",
+            _endDate,
+            Icons.event_available_rounded,
+                () => _pickDate(isStart: false),
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildDateBox(String label, DateTime date, IconData icon, VoidCallback onTap) {
-    const weekdays = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  Widget _buildDateBox(
+      String label,
+      DateTime date,
+      IconData icon,
+      VoidCallback onTap,
+      ) {
+    const weekdays = [
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
+      "Sunday",
+    ];
+    const months = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ];
     final weekday = weekdays[date.weekday - 1];
     final dateLabel = "${date.day} ${months[date.month - 1]} ${date.year}";
 
@@ -417,7 +633,11 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(color: AppColors.cardBgColor, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.borderColor)),
+        decoration: BoxDecoration(
+          color: AppColors.cardBgColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.borderColor),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -425,7 +645,13 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
               children: [
                 Icon(icon, size: 13, color: AppColors.primaryColor),
                 const SizedBox(width: 5),
-                AppText(label, fontSize: 10, fontWeight: FontWeight.w600, letterSpacing: .6, color: AppColors.labelTextColor),
+                AppText(
+                  label,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .6,
+                  color: AppColors.labelTextColor,
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -438,43 +664,90 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
     );
   }
 
-  // ==================== DURATION ====================
+  // ==================== DURATION (compact) ====================
   Widget _buildDurationSelector() {
     return Row(
       children: [
-        Expanded(child: _buildDurationOption(title: "Full Day", subtitle: "Full Shift", value: _Duration.fullDay)),
-        const SizedBox(width: 10),
-        Expanded(child: _buildDurationOption(title: "First Half", subtitle: "Morning", value: _Duration.firstHalf)),
-        const SizedBox(width: 10),
-        Expanded(child: _buildDurationOption(title: "Second Half", subtitle: "Afternoon", value: _Duration.secondHalf)),
+        Expanded(
+          child: _buildDurationOption(
+            title: "Full Day",
+            subtitle: "Full Shift",
+            value: _Duration.fullDay,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildDurationOption(
+            title: "First Half",
+            subtitle: "Morning",
+            value: _Duration.firstHalf,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _buildDurationOption(
+            title: "Second Half",
+            subtitle: "Afternoon",
+            value: _Duration.secondHalf,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _buildDurationOption({required String title, required String subtitle, required _Duration value}) {
+  Widget _buildDurationOption({
+    required String title,
+    required String subtitle,
+    required _Duration value,
+  }) {
     final bool selected = _duration == value;
     final bool enabled = _isSingleDay || value == _Duration.fullDay;
 
     return InkWell(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(12),
       onTap: enabled ? () => setState(() => _duration = value) : null,
       child: Opacity(
         opacity: enabled ? 1 : .4,
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
+          padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 6),
           decoration: BoxDecoration(
             color: selected ? AppColors.primaryColor : AppColors.cardBgColor,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: selected ? AppColors.primaryColor : AppColors.borderColor),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? AppColors.primaryColor : AppColors.borderColor,
+            ),
           ),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
               if (value == _Duration.fullDay)
-                Icon(Icons.check_circle_rounded, size: 16, color: selected ? AppColors.whiteColor : AppColors.placeholderColor),
-              if (value == _Duration.fullDay) const SizedBox(height: 4),
-              AppText(title, fontSize: 13, fontWeight: FontWeight.w600, color: selected ? AppColors.whiteColor : AppColors.headlineTextColor, textAlign: TextAlign.center),
-              const SizedBox(height: 2),
-              AppText(subtitle, fontSize: 11, color: selected ? AppColors.whiteColor.withOpacity(.85) : AppColors.labelTextColor, textAlign: TextAlign.center),
+                Icon(
+                  Icons.check_circle_rounded,
+                  size: 13,
+                  color: selected
+                      ? AppColors.whiteColor
+                      : AppColors.placeholderColor,
+                ),
+              if (value == _Duration.fullDay) const SizedBox(height: 3),
+              AppText(
+                title,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: selected
+                    ? AppColors.whiteColor
+                    : AppColors.headlineTextColor,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 1),
+              AppText(
+                subtitle,
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                color: selected
+                    ? AppColors.whiteColor.withOpacity(.85)
+                    : AppColors.labelTextColor,
+                textAlign: TextAlign.center,
+              ),
             ],
           ),
         ),
@@ -484,11 +757,16 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
 
   // ==================== COMPUTATION ====================
   Widget _buildComputationCard(LeaveBalanceModel? balance) {
-    final postApproval = balance != null ? (balance.remainingDays - _totalDays).clamp(0, balance.allocatedDays) : null;
+    final postApproval = balance != null
+        ? (balance.remainingDays - _totalDays).clamp(0, balance.allocatedDays)
+        : null;
 
     return Container(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: AppColors.fieldFillColor, borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: AppColors.fieldFillColor,
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -497,15 +775,34 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
             children: [
               const Row(
                 children: [
-                  Icon(Icons.calculate_outlined, size: 16, color: AppColors.primaryColor),
+                  Icon(
+                    Icons.calculate_outlined,
+                    size: 16,
+                    color: AppColors.primaryColor,
+                  ),
                   SizedBox(width: 6),
-                  AppText("Leave Computation", fontSize: 11, fontWeight: FontWeight.w600),
+                  AppText(
+                    "Leave Computation",
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ],
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                decoration: BoxDecoration(color: AppColors.primaryColor.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
-                child: AppText("${_totalDays.toStringAsFixed(_totalDays % 1 == 0 ? 0 : 1)} Day Total", fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 5,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withOpacity(.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: AppText(
+                  "${_totalDays.toStringAsFixed(_totalDays % 1 == 0 ? 0 : 1)} Day Total",
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.primaryColor,
+                ),
               ),
             ],
           ),
@@ -515,7 +812,9 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
             children: [
               const CaptionText("Post-Approval Balance"),
               AppText(
-                postApproval != null ? "${postApproval.toStringAsFixed(postApproval % 1 == 0 ? 0 : 1)} Days Left" : "—",
+                postApproval != null
+                    ? "${postApproval.toStringAsFixed(postApproval % 1 == 0 ? 0 : 1)} Days Left"
+                    : "—",
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -529,18 +828,31 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   // ==================== REASON ====================
   Widget _buildReasonField() {
     return Container(
-      decoration: BoxDecoration(color: AppColors.cardBgColor, borderRadius: BorderRadius.circular(14), border: Border.all(color: AppColors.borderColor)),
+      decoration: BoxDecoration(
+        color: AppColors.cardBgColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.borderColor),
+      ),
       child: TextField(
         controller: _reasonController,
         maxLength: _maxReasonLength,
         maxLines: 3,
-        style: const TextStyle(fontFamily: "Poppins", fontSize: 14, color: AppColors.headlineTextColor),
+        style: const TextStyle(
+          fontFamily: "Poppins",
+          fontSize: 14,
+          color: AppColors.headlineTextColor,
+        ),
         decoration: const InputDecoration(
           counterText: "",
           border: InputBorder.none,
           contentPadding: EdgeInsets.all(14),
-          hintText: "e.g. Family function, personal appointment,\nmedical recovery...",
-          hintStyle: TextStyle(fontFamily: "Poppins", fontSize: 13, color: AppColors.placeholderColor),
+          hintText:
+          "e.g. Family function, personal appointment,\nmedical recovery...",
+          hintStyle: TextStyle(
+            fontFamily: "Poppins",
+            fontSize: 13,
+            color: AppColors.placeholderColor,
+          ),
         ),
       ),
     );
@@ -555,12 +867,22 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
           borderRadius: BorderRadius.circular(20),
           onTap: () => setState(() {
             _reasonController.text = r;
-            _reasonController.selection = TextSelection.collapsed(offset: r.length);
+            _reasonController.selection = TextSelection.collapsed(
+              offset: r.length,
+            );
           }),
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(color: AppColors.fieldFillColor, borderRadius: BorderRadius.circular(20)),
-            child: AppText(r, fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.bodyTextColor),
+            decoration: BoxDecoration(
+              color: AppColors.fieldFillColor,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: AppText(
+              r,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.bodyTextColor,
+            ),
           ),
         );
       }).toList(),
@@ -568,7 +890,10 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
   }
 
   // ==================== SUBMIT ====================
-  Widget _buildSubmitButton(List<LeaveBalanceModel> balances, bool isSubmitting) {
+  Widget _buildSubmitButton(
+      List<LeaveBalanceModel> balances,
+      bool isSubmitting,
+      ) {
     return AppButton(
       text: isSubmitting ? "Submitting..." : "Submit Leave Request",
       icon: Icons.send_rounded,
@@ -576,32 +901,56 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
       onTap: isSubmitting ? null : () => _submit(balances),
     );
   }
-
-  Widget _buildSubmitCaption() {
-    return const Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(Icons.schedule_rounded, size: 13, color: AppColors.placeholderColor),
-        SizedBox(width: 6),
-        CaptionText("Requests are typically reviewed by management within 24 hours."),
-      ],
-    );
-  }
+  //
+  // Widget _buildSubmitCaption() {
+  //   return const Row(
+  //     mainAxisAlignment: MainAxisAlignment.center,
+  //     children: [
+  //       Icon(
+  //         Icons.schedule_rounded,
+  //         size: 13,
+  //         color: AppColors.placeholderColor,
+  //       ),
+  //       SizedBox(width: 6),
+  //       CaptionText(
+  //         "Requests are typically reviewed by management within 24 hours.",
+  //       ),
+  //     ],
+  //   );
+  // }
 
   // ==================== ERROR / SKELETON ====================
   Widget _buildErrorState(Object error, VoidCallback onRetry) {
-    final message = error is Failure ? error.message : "Couldn't load leave data.";
+    final message = error is Failure
+        ? error.message
+        : "Couldn't load leave data.";
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.wifi_off_rounded, size: 32, color: AppColors.errorColor),
+            const Icon(
+              Icons.wifi_off_rounded,
+              size: 32,
+              color: AppColors.errorColor,
+            ),
             const SizedBox(height: 10),
-            AppText(message, fontSize: 13, color: AppColors.labelTextColor, textAlign: TextAlign.center),
+            AppText(
+              message,
+              fontSize: 13,
+              color: AppColors.labelTextColor,
+              textAlign: TextAlign.center,
+            ),
             const SizedBox(height: 14),
-            SizedBox(width: 140, child: AppButton(text: "Retry", icon: Icons.refresh_rounded, onTap: onRetry)),
+            SizedBox(
+              width: 140,
+              child: AppButton(
+                text: "Retry",
+                icon: Icons.refresh_rounded,
+                onTap: onRetry,
+              ),
+            ),
           ],
         ),
       ),
@@ -629,6 +978,174 @@ class _ApplyLeaveSkeleton extends StatelessWidget {
         const SizedBox(height: 22),
         AppSkeletonBox(height: 90, borderRadius: 14),
       ],
+    );
+  }
+}
+
+// ==================== CALENDAR PICKER SHEET (table_calendar) ====================
+class _CalendarPickerSheet extends StatefulWidget {
+  final DateTime initialDate;
+  final DateTime firstDate;
+  final DateTime lastDate;
+
+  const _CalendarPickerSheet({
+    required this.initialDate,
+    required this.firstDate,
+    required this.lastDate,
+  });
+
+  @override
+  State<_CalendarPickerSheet> createState() => _CalendarPickerSheetState();
+}
+
+class _CalendarPickerSheetState extends State<_CalendarPickerSheet> {
+  late DateTime _focusedDay;
+  DateTime? _selectedDay;
+
+  bool _isSameDay(DateTime a, DateTime b) =>
+      a.year == b.year && a.month == b.month && a.day == b.day;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusedDay = widget.initialDate;
+    _selectedDay = widget.initialDate;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        16,
+        10,
+        16,
+        16 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.cardBgColor,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 4,
+            width: 40,
+            margin: const EdgeInsets.only(bottom: 14),
+            decoration: BoxDecoration(
+              color: AppColors.borderColor,
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          const AppText(
+            "Select Date",
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(height: 6),
+          TableCalendar(
+            firstDay: widget.firstDate,
+            lastDay: widget.lastDate,
+            focusedDay: _focusedDay,
+            currentDay: DateTime.now(),
+            calendarFormat: CalendarFormat.month,
+            availableGestures: AvailableGestures.horizontalSwipe,
+            startingDayOfWeek: StartingDayOfWeek.monday,
+            selectedDayPredicate: (day) =>
+            _selectedDay != null && _isSameDay(_selectedDay!, day),
+            onDaySelected: (selectedDay, focusedDay) {
+              setState(() {
+                _selectedDay = selectedDay;
+                _focusedDay = focusedDay;
+              });
+            },
+            onPageChanged: (focusedDay) => _focusedDay = focusedDay,
+            headerStyle: const HeaderStyle(
+              formatButtonVisible: false,
+              titleCentered: true,
+              leftChevronIcon: Icon(
+                Icons.chevron_left_rounded,
+                color: AppColors.primaryColor,
+              ),
+              rightChevronIcon: Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.primaryColor,
+              ),
+              titleTextStyle: TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.headlineTextColor,
+              ),
+            ),
+            daysOfWeekStyle: const DaysOfWeekStyle(
+              weekdayStyle: TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.labelTextColor,
+              ),
+              weekendStyle: TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.labelTextColor,
+              ),
+            ),
+            calendarStyle: CalendarStyle(
+              outsideDaysVisible: false,
+              cellMargin: const EdgeInsets.all(4),
+              defaultTextStyle: const TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.headlineTextColor,
+              ),
+              weekendTextStyle: const TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.headlineTextColor,
+              ),
+              disabledTextStyle: TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.placeholderColor.withOpacity(.5),
+              ),
+              todayDecoration: BoxDecoration(
+                color: AppColors.primaryColor.withOpacity(.12),
+                shape: BoxShape.circle,
+              ),
+              todayTextStyle: const TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryColor,
+              ),
+              selectedDecoration: const BoxDecoration(
+                color: AppColors.primaryColor,
+                shape: BoxShape.circle,
+              ),
+              selectedTextStyle: const TextStyle(
+                fontFamily: "Poppins",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.whiteColor,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          AppButton(
+            text: "Confirm Date",
+            icon: Icons.check_rounded,
+            gradient: AppColors.primaryGradient,
+            onTap: _selectedDay == null
+                ? null
+                : () => Navigator.pop(context, _selectedDay),
+          ),
+        ],
+      ),
     );
   }
 }

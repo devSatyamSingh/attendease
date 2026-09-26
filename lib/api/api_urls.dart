@@ -1,7 +1,4 @@
-/// AttendEase — centralized API endpoint paths.
-/// Never hardcode a URL string inside a repository — always reference
-/// ApiUrls.xxx. Only employee-facing endpoints are listed here; this
-/// app never calls an /api/admin/* route.
+
 class ApiUrls {
   ApiUrls._();
 

@@ -15,7 +15,6 @@ import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
 import '../attendance/check_in_out_screen.dart';
 
-
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -31,8 +30,6 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Only used to refresh the "worked so far" label once a minute
-    // while checked in — harmless no-op the rest of the time.
     _tickTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
     });
@@ -48,13 +45,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // User Settings app se permission allow karke wapas aaya — auto
-    // detect karo, use manually refresh karne ko mat bolo.
     if (state == AppLifecycleState.resumed) {
       _ensureLocationPermission();
     }
   }
-
 
   Future<void> _ensureLocationPermission() async {
     try {
@@ -62,25 +56,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     } on Failure catch (f) {
       if (!mounted) return;
       _showLocationPermissionDialog(f);
-    } catch (_) {
-      // Ignore — check-in tap karte waqt LocationService phir se
-      // surface kar dega agar location off/denied hai.
-    }
+    } catch (_) {}
   }
 
   void _showLocationPermissionDialog(Failure failure) {
-    final bool permanentlyDenied =
-    failure.message.toLowerCase().contains("permanently");
+    final bool permanentlyDenied = failure.message.toLowerCase().contains(
+      "permanently",
+    );
 
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const AppText("Location needed", fontSize: 16, fontWeight: FontWeight.w700),
-        content: AppText(failure.message, fontSize: 13, color: AppColors.labelTextColor),
+        title: const AppText(
+          "Location needed",
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+        ),
+        content: AppText(
+          failure.message,
+          fontSize: 13,
+          color: AppColors.labelTextColor,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const AppText("Not now", fontSize: 13, fontWeight: FontWeight.w600),
+            child: const AppText(
+              "Not now",
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           TextButton(
             onPressed: () async {
@@ -104,15 +108,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Future<void> _openCheckIn(BuildContext context) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const CheckInScreen()),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CheckInScreen()));
     if (!mounted) return;
     ref.read(attendanceViewModelProvider.notifier).refresh();
   }
 
   Future<void> _handleCheckOut(BuildContext context) async {
-    final success = await ref.read(attendanceViewModelProvider.notifier).checkOut();
+    final success = await ref
+        .read(attendanceViewModelProvider.notifier)
+        .checkOut();
     if (!mounted) return;
 
     if (success) {
@@ -122,7 +128,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       final error = ref.read(attendanceViewModelProvider).error;
       AppUtils.showErrorSnackbar(
         context,
-        error is Failure ? error.message : "Couldn't check out. Please try again.",
+        error is Failure
+            ? error.message
+            : "Couldn't check out. Please try again.",
       );
     }
   }
@@ -163,7 +171,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       children: [
                         _buildStatusCard(context, today),
                         const SizedBox(height: 16),
-                        _buildActionArea(context, today, attendanceState.isLoading),
+                        _buildActionArea(
+                          context,
+                          today,
+                          attendanceState.isLoading,
+                        ),
                       ],
                     ),
                   ),
@@ -172,19 +184,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   const SizedBox(height: 12),
                   recentActivityAsync.when(
                     loading: () => const _ActivityListSkeleton(),
-                    error: (error, _) => _buildActivityErrorCard(context, error),
+                    error: (error, _) =>
+                        _buildActivityErrorCard(context, error),
                     data: (items) => items.isEmpty
                         ? _buildEmptyActivityCard()
                         : Column(
-                      children: items
-                          .map(
-                            (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: _buildActivityCard(context, item),
-                        ),
-                      )
-                          .toList(),
-                    ),
+                            children: items
+                                .map(
+                                  (item) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 12),
+                                    child: _buildActivityCard(context, item),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                   ),
                 ],
               ),
@@ -213,13 +226,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           onPressed: () {
             // TODO: Navigator.pushNamed(context, AppRoutes.notifications);
           },
-          icon: const Icon(Icons.notifications_none_rounded, color: AppColors.headlineTextColor),
-        ),
-        Container(
-          height: 38,
-          width: 38,
-          decoration: const BoxDecoration(color: AppColors.primaryColor, shape: BoxShape.circle),
-          child: const Icon(Icons.person_rounded, color: AppColors.whiteColor, size: 20),
+          icon: const Icon(
+            Icons.notifications_none_rounded,
+            color: AppColors.headlineTextColor,
+          ),
         ),
       ],
     );
@@ -233,7 +243,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           radius: 22,
           backgroundColor: AppColors.primaryLight,
           child: AppText(
-            (firstName?.isNotEmpty ?? false) ? firstName![0].toUpperCase() : "?",
+            (firstName?.isNotEmpty ?? false)
+                ? firstName![0].toUpperCase()
+                : "?",
             fontSize: 19,
             fontWeight: FontWeight.w600,
             color: AppColors.primaryColor,
@@ -252,7 +264,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
-              CaptionText(DateFormat("EEEE, MMM d, yyyy").format(DateTime.now())),
+              CaptionText(
+                DateFormat("EEEE, MMM d, yyyy").format(DateTime.now()),
+              ),
             ],
           ),
         ),
@@ -264,7 +278,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Widget _buildStatusCard(BuildContext context, AttendanceModel? today) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
-    final String statusLabel = checkedOut ? "CHECKED OUT" : (checkedIn ? "WORKING" : "NOT CHECKED IN");
+    final String statusLabel = checkedOut
+        ? "CHECKED OUT"
+        : (checkedIn ? "WORKING" : "NOT CHECKED IN");
     final Color pillDotColor = checkedOut
         ? AppColors.checkedOutColor
         : (checkedIn ? AppColors.workingColor : AppColors.notCheckedInColor);
@@ -276,7 +292,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         gradient: AppColors.primaryGradient,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
-          BoxShadow(color: AppColors.primaryColor.withOpacity(.3), blurRadius: 20, offset: const Offset(0, 10)),
+          BoxShadow(
+            color: AppColors.primaryColor.withOpacity(.3),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
         ],
       ),
       child: Column(
@@ -290,7 +310,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.verified_user_outlined, size: 14, color: AppColors.whiteColor),
+                      const Icon(
+                        Icons.verified_user_outlined,
+                        size: 14,
+                        color: AppColors.whiteColor,
+                      ),
                       const SizedBox(width: 4),
                       Flexible(
                         child: AppText(
@@ -307,7 +331,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           ),
           const SizedBox(height: 18),
           AppText(
-            checkedOut ? "CHECKED OUT AT" : (checkedIn ? "CHECKED IN AT" : "READY WHEN YOU ARE"),
+            checkedOut
+                ? "CHECKED OUT AT"
+                : (checkedIn ? "CHECKED IN AT" : "READY WHEN YOU ARE"),
             fontSize: 11,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.4,
@@ -320,7 +346,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 AppText(
-                  _timeOnly(checkedOut ? today!.actualCheckOut! : today!.actualCheckIn!),
+                  _timeOnly(
+                    checkedOut ? today!.actualCheckOut! : today!.actualCheckIn!,
+                  ),
                   fontSize: 30,
                   fontWeight: FontWeight.w600,
                   color: AppColors.whiteColor,
@@ -329,7 +357,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: AppText(
-                    _meridiem(checkedOut ? today!.actualCheckOut! : today!.actualCheckIn!),
+                    _meridiem(
+                      checkedOut
+                          ? today!.actualCheckOut!
+                          : today!.actualCheckIn!,
+                    ),
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
                     color: AppColors.whiteColor.withOpacity(.8),
@@ -348,7 +380,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.access_time_rounded, size: 14, color: AppColors.whiteColor.withOpacity(.75)),
+              Icon(
+                Icons.access_time_rounded,
+                size: 14,
+                color: AppColors.whiteColor.withOpacity(.75),
+              ),
               const SizedBox(width: 6),
               Flexible(
                 child: AppText(
@@ -379,16 +415,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(height: 7, width: 7, decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle)),
+          Container(
+            height: 7,
+            width: 7,
+            decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 6),
-          AppText(status, fontSize: 11, fontWeight: FontWeight.w600, letterSpacing: .5, color: AppColors.whiteColor),
+          AppText(
+            status,
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            letterSpacing: .5,
+            color: AppColors.whiteColor,
+          ),
         ],
       ),
     );
   }
 
   Widget _buildWorkedSoFarCard(AttendanceModel today) {
-    final elapsedMinutes = today.workedMinutes ??
+    final elapsedMinutes =
+        today.workedMinutes ??
         DateTime.now().difference(today.actualCheckIn!.toLocal()).inMinutes;
     final goalMinutes = AppConstants.defaultDailyGoalHours * 60;
     final percent = (elapsedMinutes / goalMinutes).clamp(0.0, 1.0);
@@ -398,7 +445,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: AppColors.whiteColor.withOpacity(.12), borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        color: AppColors.whiteColor.withOpacity(.12),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Column(
         children: [
           Row(
@@ -406,12 +456,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             children: [
               Row(
                 children: [
-                  const Icon(Icons.timelapse_rounded, size: 14, color: AppColors.secondaryColor),
+                  const Icon(
+                    Icons.timelapse_rounded,
+                    size: 14,
+                    color: AppColors.secondaryColor,
+                  ),
                   const SizedBox(width: 6),
-                  AppText("Worked so far", fontSize: 11, color: AppColors.whiteColor.withOpacity(.9)),
+                  AppText(
+                    "Worked so far",
+                    fontSize: 11,
+                    color: AppColors.whiteColor.withOpacity(.9),
+                  ),
                 ],
               ),
-              AppText("${h}h ${m.toString().padLeft(2, '0')}m", fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.whiteColor),
+              AppText(
+                "${h}h ${m.toString().padLeft(2, '0')}m",
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.whiteColor,
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -421,15 +484,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               value: percent,
               minHeight: 5,
               backgroundColor: AppColors.whiteColor.withOpacity(.2),
-              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondaryColor),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                AppColors.secondaryColor,
+              ),
             ),
           ),
           const SizedBox(height: 8),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              AppText("${(percent * 100).round()}% of daily goal", fontSize: 11, color: AppColors.whiteColor.withOpacity(.7)),
-              AppText("${AppConstants.defaultDailyGoalHours}h target", fontSize: 11, color: AppColors.whiteColor.withOpacity(.7)),
+              AppText(
+                "${(percent * 100).round()}% of daily goal",
+                fontSize: 11,
+                color: AppColors.whiteColor.withOpacity(.7),
+              ),
+              AppText(
+                "${AppConstants.defaultDailyGoalHours}h target",
+                fontSize: 11,
+                color: AppColors.whiteColor.withOpacity(.7),
+              ),
             ],
           ),
         ],
@@ -438,7 +511,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // ==================== ACTION AREA (Check In / Check Out / Done) ====================
-  Widget _buildActionArea(BuildContext context, AttendanceModel? today, bool isBusy) {
+  Widget _buildActionArea(
+    BuildContext context,
+    AttendanceModel? today,
+    bool isBusy,
+  ) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
 
@@ -456,17 +533,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               height: 36,
               width: 36,
               alignment: Alignment.center,
-              decoration: const BoxDecoration(color: AppColors.successColor, shape: BoxShape.circle),
-              child: const Icon(Icons.check_rounded, color: AppColors.whiteColor, size: 18),
+              decoration: const BoxDecoration(
+                color: AppColors.successColor,
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_rounded,
+                color: AppColors.whiteColor,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppText("Done for today", fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.successColor),
+                  AppText(
+                    "Done for today",
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.successColor,
+                  ),
                   const SizedBox(height: 2),
-                  const AppText("See you tomorrow!", fontSize: 12, color: AppColors.bodyTextColor),
+                  const AppText(
+                    "See you tomorrow!",
+                    fontSize: 12,
+                    color: AppColors.bodyTextColor,
+                  ),
                 ],
               ),
             ),
@@ -481,12 +574,16 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         onTap: isBusy ? null : () => _handleCheckOut(context),
         child: Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           decoration: BoxDecoration(
             color: AppColors.errorColor,
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
-              BoxShadow(color: AppColors.errorColor.withOpacity(.3), blurRadius: 14, offset: const Offset(0, 8)),
+              BoxShadow(
+                color: AppColors.errorColor.withOpacity(.3),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
             ],
           ),
           child: Row(
@@ -495,23 +592,42 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 height: 36,
                 width: 36,
                 alignment: Alignment.center,
-                decoration: BoxDecoration(color: AppColors.whiteColor.withOpacity(.15), shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: AppColors.whiteColor.withOpacity(.15),
+                  shape: BoxShape.circle,
+                ),
                 child: isBusy
                     ? const SizedBox(
-                  height: 16,
-                  width: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.whiteColor),
-                )
-                    : const Icon(Icons.logout_rounded, color: AppColors.whiteColor, size: 18),
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: AppColors.whiteColor,
+                        ),
+                      )
+                    : const Icon(
+                        Icons.logout_rounded,
+                        color: AppColors.whiteColor,
+                        size: 18,
+                      ),
               ),
               const SizedBox(width: 14),
               const Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    AppText("CHECK OUT", fontSize: 15, fontWeight: FontWeight.w600, color: AppColors.whiteColor),
+                    AppText(
+                      "CHECK OUT",
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.whiteColor,
+                    ),
                     SizedBox(height: 2),
-                    AppText("Tap to end shift", fontSize: 11, color: AppColors.whiteColor),
+                    AppText(
+                      "Tap to end shift",
+                      fontSize: 11,
+                      color: AppColors.whiteColor,
+                    ),
                   ],
                 ),
               ),
@@ -532,7 +648,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           gradient: AppColors.primaryGradient,
           borderRadius: BorderRadius.circular(18),
           boxShadow: [
-            BoxShadow(color: AppColors.primaryColor.withOpacity(.3), blurRadius: 14, offset: const Offset(0, 8)),
+            BoxShadow(
+              color: AppColors.primaryColor.withOpacity(.3),
+              blurRadius: 14,
+              offset: const Offset(0, 8),
+            ),
           ],
         ),
         child: Row(
@@ -541,17 +661,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               height: 36,
               width: 36,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: AppColors.whiteColor.withOpacity(.15), shape: BoxShape.circle),
-              child: const Icon(Icons.fingerprint_rounded, color: AppColors.whiteColor, size: 18),
+              decoration: BoxDecoration(
+                color: AppColors.whiteColor.withOpacity(.15),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.fingerprint_rounded,
+                color: AppColors.whiteColor,
+                size: 18,
+              ),
             ),
             const SizedBox(width: 14),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppText("CHECK IN", fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.whiteColor),
+                  AppText(
+                    "CHECK IN",
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.whiteColor,
+                  ),
                   SizedBox(height: 2),
-                  AppText("Tap to verify location & mark attendance", fontSize: 11, color: AppColors.whiteColor),
+                  AppText(
+                    "Tap to verify location & mark attendance",
+                    fontSize: 11,
+                    color: AppColors.whiteColor,
+                  ),
                 ],
               ),
             ),
@@ -563,7 +699,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   // ==================== ERROR CARDS ====================
   Widget _buildStatusErrorCard(BuildContext context, Object error) {
-    final message = error is Failure ? error.message : "Couldn't load today's status.";
+    final message = error is Failure
+        ? error.message
+        : "Couldn't load today's status.";
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(18),
@@ -576,10 +714,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         children: [
           const Icon(Icons.wifi_off_rounded, color: AppColors.errorColor),
           const SizedBox(width: 10),
-          Expanded(child: AppText(message, fontSize: 13, color: AppColors.labelTextColor)),
+          Expanded(
+            child: AppText(
+              message,
+              fontSize: 13,
+              color: AppColors.labelTextColor,
+            ),
+          ),
           TextButton(
-            onPressed: () => ref.read(attendanceViewModelProvider.notifier).refresh(),
-            child: const AppText("Retry", fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
+            onPressed: () =>
+                ref.read(attendanceViewModelProvider.notifier).refresh(),
+            child: const AppText(
+              "Retry",
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
           ),
         ],
       ),
@@ -587,7 +737,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildActivityErrorCard(BuildContext context, Object error) {
-    final message = error is Failure ? error.message : "Couldn't load recent activity.";
+    final message = error is Failure
+        ? error.message
+        : "Couldn't load recent activity.";
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -598,12 +750,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       ),
       child: Row(
         children: [
-          const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.errorColor),
+          const Icon(
+            Icons.error_outline_rounded,
+            size: 18,
+            color: AppColors.errorColor,
+          ),
           const SizedBox(width: 8),
-          Expanded(child: AppText(message, fontSize: 12, color: AppColors.labelTextColor)),
+          Expanded(
+            child: AppText(
+              message,
+              fontSize: 12,
+              color: AppColors.labelTextColor,
+            ),
+          ),
           TextButton(
             onPressed: () => ref.invalidate(recentAttendanceProvider),
-            child: const AppText("Retry", fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.primaryColor),
+            child: const AppText(
+              "Retry",
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: AppColors.primaryColor,
+            ),
           ),
         ],
       ),
@@ -617,21 +784,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       children: [
         const Row(
           children: [
-            Icon(Icons.history_rounded, size: 18, color: AppColors.headlineTextColor),
+            Icon(
+              Icons.history_rounded,
+              size: 18,
+              color: AppColors.headlineTextColor,
+            ),
             SizedBox(width: 6),
-            AppText("Recent Activity", fontSize: 14, fontWeight: FontWeight.w600),
+            AppText(
+              "Recent Activity",
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
           ],
         ),
         TextButton(
           onPressed: () {
             Navigator.pushNamed(context, RouteNames.history);
           },
-          style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(0, 32)),
+          style: TextButton.styleFrom(
+            padding: EdgeInsets.zero,
+            minimumSize: const Size(0, 32),
+          ),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AppText("View All", fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
-              Icon(Icons.chevron_right_rounded, size: 18, color: AppColors.primaryColor),
+              AppText(
+                "View All",
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryColor,
+              ),
+              Icon(
+                Icons.chevron_right_rounded,
+                size: 18,
+                color: AppColors.primaryColor,
+              ),
             ],
           ),
         ),
@@ -654,11 +841,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             height: 56,
             width: 56,
             alignment: Alignment.center,
-            decoration: BoxDecoration(color: AppColors.primaryLight, shape: BoxShape.circle),
-            child: const Icon(Icons.calendar_today_rounded, size: 24, color: AppColors.primaryColor),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.calendar_today_rounded,
+              size: 24,
+              color: AppColors.primaryColor,
+            ),
           ),
           const SizedBox(height: 14),
-          const AppText("No activity yet", fontSize: 14, fontWeight: FontWeight.w600),
+          const AppText(
+            "No activity yet",
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
           const SizedBox(height: 4),
           AppText(
             "Your check-ins will show up here once you get started.",
@@ -674,10 +872,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Widget _buildActivityCard(BuildContext context, AttendanceModel item) {
     final bool isLate = (item.lateMinutes ?? 0) > 0;
     final bool inProgress = item.actualCheckOut == null;
-    final Color badgeColor = isLate ? AppColors.lateColor : AppColors.successColor;
-    final Color iconBgColor = isLate ? AppColors.lateColor.withOpacity(.12) : AppColors.primaryColor.withOpacity(.1);
-    final IconData icon = isLate ? Icons.watch_later_rounded : Icons.check_circle_rounded;
-    final Color iconColor = isLate ? AppColors.lateColor : AppColors.primaryColor;
+    final Color badgeColor = isLate
+        ? AppColors.lateColor
+        : AppColors.successColor;
+    final Color iconBgColor = isLate
+        ? AppColors.lateColor.withOpacity(.12)
+        : AppColors.primaryColor.withOpacity(.1);
+    final IconData icon = isLate
+        ? Icons.watch_later_rounded
+        : Icons.check_circle_rounded;
+    final Color iconColor = isLate
+        ? AppColors.lateColor
+        : AppColors.primaryColor;
 
     final dateLabel = item.attendanceDate != null
         ? DateFormat("EEEE, MMM d").format(item.attendanceDate!.toLocal())
@@ -702,7 +908,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           Container(
             height: 40,
             width: 40,
-            decoration: BoxDecoration(color: iconBgColor, borderRadius: BorderRadius.circular(12)),
+            decoration: BoxDecoration(
+              color: iconBgColor,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: Icon(icon, color: iconColor, size: 20),
           ),
           const SizedBox(width: 12),
@@ -710,22 +919,43 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                AppText(dateLabel, fontSize: 14, fontWeight: FontWeight.w500, maxLines: 1, overflow: TextOverflow.ellipsis),
+                AppText(
+                  dateLabel,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
                 const SizedBox(height: 4),
                 _buildStatusChip(
-                  inProgress ? "In Progress" : (isLate ? "Late (${item.lateMinutes}m)" : "Completed"),
+                  inProgress
+                      ? "In Progress"
+                      : (isLate ? "Late (${item.lateMinutes}m)" : "Completed"),
                   inProgress ? AppColors.infoColor : badgeColor,
                 ),
                 const SizedBox(height: 6),
-                AppText(timeRange, fontSize: 12, color: AppColors.labelTextColor, maxLines: 1, overflow: TextOverflow.ellipsis),
+                AppText(
+                  timeRange,
+                  fontSize: 12,
+                  color: AppColors.labelTextColor,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ],
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: AppColors.fieldFillColor, borderRadius: BorderRadius.circular(8)),
-            child: AppText(workedLabel, fontSize: 11, fontWeight: FontWeight.w600),
+            decoration: BoxDecoration(
+              color: AppColors.fieldFillColor,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: AppText(
+              workedLabel,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -735,13 +965,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Widget _buildStatusChip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: color.withOpacity(.12), borderRadius: BorderRadius.circular(20)),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(height: 6, width: 6, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+          Container(
+            height: 6,
+            width: 6,
+            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+          ),
           const SizedBox(width: 5),
-          AppText(label, fontSize: 10, fontWeight: FontWeight.w600, color: color),
+          AppText(
+            label,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: color,
+          ),
         ],
       ),
     );
@@ -779,7 +1021,10 @@ class _StatusCardSkeleton extends StatelessWidget {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppColors.cardBgColor, borderRadius: BorderRadius.circular(24)),
+      decoration: BoxDecoration(
+        color: AppColors.cardBgColor,
+        borderRadius: BorderRadius.circular(24),
+      ),
       child: Column(
         children: [
           Row(
@@ -807,7 +1052,7 @@ class _ActivityListSkeleton extends StatelessWidget {
     return Column(
       children: List.generate(
         3,
-            (i) => Container(
+        (i) => Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
