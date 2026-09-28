@@ -7,7 +7,7 @@ import '../services/device_info_service.dart';
 import '../services/location_service.dart';
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>(
-  (ref) => AttendanceRepository(),
+      (ref) => AttendanceRepository(),
 );
 
 class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
@@ -19,7 +19,7 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
   Future<void> refresh() async {
     state = const AsyncValue.loading();
     state = await AsyncValue.guard(
-      () => ref.read(attendanceRepositoryProvider).getTodayAttendance(),
+          () => ref.read(attendanceRepositoryProvider).getTodayAttendance(),
     );
   }
 
@@ -33,18 +33,18 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
       return ref
           .read(attendanceRepositoryProvider)
           .checkIn(
-            latitude: position.latitude,
-            longitude: position.longitude,
-            accuracy: position.accuracy,
-            deviceId: device.deviceId,
-          );
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+        deviceId: device.deviceId,
+      );
     });
 
     state = result;
 
     if (!result.hasError) {
       ref.invalidate(recentAttendanceProvider);
-      ref.read(attendanceHistoryViewModelProvider.notifier).refresh();
+      ref.invalidate(attendanceHistoryViewModelProvider);
     }
 
     return !result.hasError;
@@ -60,18 +60,18 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
       return ref
           .read(attendanceRepositoryProvider)
           .checkOut(
-            latitude: position.latitude,
-            longitude: position.longitude,
-            accuracy: position.accuracy,
-            deviceId: device.deviceId,
-          );
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracy: position.accuracy,
+        deviceId: device.deviceId,
+      );
     });
 
     state = result;
 
     if (!result.hasError) {
       ref.invalidate(recentAttendanceProvider);
-      ref.read(attendanceHistoryViewModelProvider.notifier).refresh();
+      ref.invalidate(attendanceHistoryViewModelProvider);
     }
 
     return !result.hasError;
@@ -79,9 +79,9 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
 }
 
 final attendanceViewModelProvider =
-    AsyncNotifierProvider<AttendanceViewModel, AttendanceModel?>(
-      AttendanceViewModel.new,
-    );
+AsyncNotifierProvider<AttendanceViewModel, AttendanceModel?>(
+  AttendanceViewModel.new,
+);
 
 // ==================== PAGINATED HISTORY ====================
 
@@ -126,14 +126,14 @@ class AttendanceHistoryState {
 }
 
 class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
-  static const _pageSize = 31; // covers a full calendar month in one page
+  static const _pageSize = 30; // backend limit ke saath match
 
   DateTime? _lastFrom;
   DateTime? _lastTo;
 
   @override
   AttendanceHistoryState build() {
-    Future.microtask(loadFirstPage);
+    // Load history screen khud _loadMonth() se karti hai (race avoid).
     return const AttendanceHistoryState(isLoading: true);
   }
 
@@ -170,11 +170,11 @@ class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
       final response = await ref
           .read(attendanceRepositoryProvider)
           .getHistory(
-            page: nextPage,
-            limit: _pageSize,
-            from: _lastFrom,
-            to: _lastTo,
-          );
+        page: nextPage,
+        limit: _pageSize,
+        from: _lastFrom,
+        to: _lastTo,
+      );
       state = state.copyWith(
         items: [...state.items, ...response.items],
         page: response.pagination.page,
@@ -197,8 +197,8 @@ class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
 // ==================== RECENT ACTIVITY (dashboard) ====================
 
 final recentAttendanceProvider = FutureProvider<List<AttendanceModel>>((
-  ref,
-) async {
+    ref,
+    ) async {
   final response = await ref
       .read(attendanceRepositoryProvider)
       .getHistory(page: 1, limit: 4);
@@ -206,6 +206,6 @@ final recentAttendanceProvider = FutureProvider<List<AttendanceModel>>((
 });
 
 final attendanceHistoryViewModelProvider =
-    NotifierProvider<AttendanceHistoryViewModel, AttendanceHistoryState>(
-      AttendanceHistoryViewModel.new,
-    );
+NotifierProvider<AttendanceHistoryViewModel, AttendanceHistoryState>(
+  AttendanceHistoryViewModel.new,
+);

@@ -115,7 +115,6 @@ class LeaveHistoryViewModel extends Notifier<LeaveHistoryState> {
 
   @override
   LeaveHistoryState build() {
-    Future.microtask(loadFirstPage);
     return const LeaveHistoryState(isLoading: true);
   }
 

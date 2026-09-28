@@ -28,17 +28,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   bool _obscurePassword = true;
   bool _buildingDeviceInfo = false;
 
-  @override
-  void initState() {
-    super.initState();
-    SystemChrome.setSystemUIOverlayStyle(
-      const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        statusBarBrightness: Brightness.dark,
-      ),
-    );
-  }
 
   @override
   void dispose() {
@@ -59,10 +48,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final success = await ref
         .read(authViewModelProvider.notifier)
         .login(
-          loginId: _employeeIdController.text.trim(),
-          password: _passwordController.text,
-          device: device,
-        );
+      loginId: _employeeIdController.text.trim(),
+      password: _passwordController.text,
+      device: device,
+    );
 
     if (!mounted || !success) return;
 
@@ -82,15 +71,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final topPadding = MediaQuery.paddingOf(context).top;
-    final headerIconSize = size.width * 0.2 > 92 ? 92.0 : size.width * 0.2;
+    final headerIconSize = size.width * 0.14 > 60 ? 60.0 : size.width * 0.14;
 
     final authState = ref.watch(authViewModelProvider);
     final isLoading = authState.isLoading || _buildingDeviceInfo;
 
     ref.listen<AsyncValue<LoginResponseModel?>>(authViewModelProvider, (
-      previous,
-      next,
-    ) {
+        previous,
+        next,
+        ) {
       next.whenOrNull(
         error: (error, _) {
           final message = error is Failure
@@ -101,166 +90,179 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
     });
 
-    return Scaffold(
-      backgroundColor: AppColors.whiteColor,
-      body: Stack(
-        children: [
-          Container(
-            width: double.infinity,
-            height: topPadding + 280,
-            decoration: const BoxDecoration(
-              gradient: AppColors.primaryGradient,
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,  // Android: white icons
+        statusBarBrightness: Brightness.dark,       // iOS
+      ),
+      child: Scaffold(
+        backgroundColor: AppColors.whiteColor,
+        body: Stack(
+          children: [
+            Container(
+              width: double.infinity,
+              height: topPadding + 200,
+              decoration: const BoxDecoration(
+                gradient: AppColors.primaryGradient,
+              ),
             ),
-          ),
-          SingleChildScrollView(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(minHeight: size.height),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _Header(topPadding: topPadding, iconSize: headerIconSize),
-                      Transform.translate(
-                        offset: const Offset(0, -40),
-                        child: Container(
-                          width: double.infinity,
-                          decoration: const BoxDecoration(
-                            color: AppColors.whiteColor,
-                            borderRadius: BorderRadius.only(
-                              topLeft: Radius.circular(28),
-                              topRight: Radius.circular(28),
+            SingleChildScrollView(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: size.height),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 440),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _Header(topPadding: topPadding, iconSize: headerIconSize),
+                        Transform.translate(
+                          offset: const Offset(0, -28),
+                          child: Container(
+                            width: double.infinity,
+                            decoration: const BoxDecoration(
+                              color: AppColors.whiteColor,
+                              borderRadius: BorderRadius.only(
+                                topLeft: Radius.circular(24),
+                                topRight: Radius.circular(24),
+                              ),
                             ),
-                          ),
-                          padding: const EdgeInsets.fromLTRB(24, 30, 24, 24),
-                          child: Form(
-                            key: _formKey,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: const [
-                                    HeadlineText("Welcome Back", fontSize: 24),
-                                    _GeofenceBadge(),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                                const CaptionText(
-                                  "Sign in to mark your daily attendance",
-                                ),
-                                const SizedBox(height: 24),
-                                const AppText(
-                                  "Employee ID or Work Email",
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                const SizedBox(height: 8),
-                                AppTextField(
-                                  controller: _employeeIdController,
-                                  hintText: "EMP-48209",
-                                  keyboardType: TextInputType.text,
-                                  enabled: !isLoading,
-                                  prefixIcon: const Icon(
-                                    Icons.badge_outlined,
-                                    color: AppColors.labelTextColor,
-                                  ),
-                                  suffixIcon: ValueListenableBuilder(
-                                    valueListenable: _employeeIdController,
-                                    builder: (context, value, _) {
-                                      if (value.text.trim().isEmpty)
-                                        return const SizedBox.shrink();
-                                      return const Icon(
-                                        Icons.check_circle_rounded,
-                                        color: AppColors.successColor,
-                                        size: 20,
-                                      );
-                                    },
-                                  ),
-                                  validator: Validators.employeeIdOrEmail,
-                                ),
-                                const SizedBox(height: 18),
-                                const AppText(
-                                  "Master Password",
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                                const SizedBox(height: 8),
-                                AppTextField(
-                                  controller: _passwordController,
-                                  obscureText: _obscurePassword,
-                                  enabled: !isLoading,
-                                  prefixIcon: const Icon(
-                                    Icons.lock_outline_rounded,
-                                    color: AppColors.labelTextColor,
-                                  ),
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _obscurePassword
-                                          ? Icons.visibility_off_outlined
-                                          : Icons.visibility_outlined,
-                                      color: AppColors.labelTextColor,
-                                    ),
-                                    onPressed: () => setState(
-                                      () =>
-                                          _obscurePassword = !_obscurePassword,
-                                    ),
-                                  ),
-                                  validator: Validators.password,
-                                ),
-                                const SizedBox(height: 20),
-                                AppButton(
-                                  text: "Clock In / Login",
-                                  icon: Icons.fingerprint_rounded,
-                                  loading: isLoading,
-                                  onTap: isLoading ? null : _handleLogin,
-                                ),
-                                const SizedBox(height: 22),
-                                const _InfoBanner(
-                                  text:
-                                      "This handset will be bound to your biometrics profile",
-                                ),
-                                const SizedBox(height: 20),
-                                Center(
-                                  child: Column(
-                                    children: [
-                                      Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: const [
-                                          Icon(
-                                            Icons.support_agent_rounded,
-                                            size: 15,
-                                            color: AppColors.labelTextColor,
-                                          ),
-                                          SizedBox(width: 6),
-                                          CaptionText(
-                                            "Contact IT Helpdesk if unable to sign in",
-                                            color: AppColors.labelTextColor,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 6),
-                                      const CaptionText(
-                                        "256-bit Hardware-Backed Security • v2.4.0",
-                                        color: AppColors.placeholderColor,
-                                      ),
+                            padding: const EdgeInsets.fromLTRB(20, 22, 20, 18),
+                            child: Form(
+                              key: _formKey,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                    children: const [
+                                      HeadlineText("Welcome Back", fontSize: 18),
+                                      _GeofenceBadge(),
                                     ],
                                   ),
-                                ),
-                              ],
+                                  const SizedBox(height: 4),
+                                  const CaptionText(
+                                    "Sign in to mark your daily attendance",
+                                  ),
+                                  const SizedBox(height: 16),
+                                  const AppText(
+                                    "Employee ID or Work Email",
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  AppTextField(
+                                    controller: _employeeIdController,
+                                    hintText: "EMP-48209",
+                                    keyboardType: TextInputType.text,
+                                    enabled: !isLoading,
+                                    prefixIcon: const Icon(
+                                      Icons.badge_outlined,
+                                      size: 18,
+                                      color: AppColors.labelTextColor,
+                                    ),
+                                    suffixIcon: ValueListenableBuilder(
+                                      valueListenable: _employeeIdController,
+                                      builder: (context, value, _) {
+                                        if (value.text.trim().isEmpty) {
+                                          return const SizedBox.shrink();
+                                        }
+                                        return const Icon(
+                                          Icons.check_circle_rounded,
+                                          color: AppColors.successColor,
+                                          size: 17,
+                                        );
+                                      },
+                                    ),
+                                    validator: Validators.employeeIdOrEmail,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  const AppText(
+                                    "Master Password",
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  const SizedBox(height: 6),
+                                  AppTextField(
+                                    controller: _passwordController,
+                                    obscureText: _obscurePassword,
+                                    enabled: !isLoading,
+                                    prefixIcon: const Icon(
+                                      Icons.lock_outline_rounded,
+                                      size: 18,
+                                      color: AppColors.labelTextColor,
+                                    ),
+                                    suffixIcon: IconButton(
+                                      padding: EdgeInsets.zero,
+                                      icon: Icon(
+                                        _obscurePassword
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                        size: 18,
+                                        color: AppColors.labelTextColor,
+                                      ),
+                                      onPressed: () => setState(
+                                            () =>
+                                        _obscurePassword = !_obscurePassword,
+                                      ),
+                                    ),
+                                    validator: Validators.password,
+                                  ),
+                                  const SizedBox(height: 16),
+                                  AppButton(
+                                    text: "Clock In / Login",
+                                    icon: Icons.fingerprint_rounded,
+                                    height: 50,
+                                    loading: isLoading,
+                                    onTap: isLoading ? null : _handleLogin,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  const _InfoBanner(
+                                    text:
+                                    "This handset will be bound to your biometrics profile",
+                                  ),
+                                  const SizedBox(height: 14),
+                                  Center(
+                                    child: Column(
+                                      children: [
+                                        Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: const [
+                                            Icon(
+                                              Icons.support_agent_rounded,
+                                              size: 13,
+                                              color: AppColors.labelTextColor,
+                                            ),
+                                            SizedBox(width: 5),
+                                            CaptionText(
+                                              "Contact IT Helpdesk if unable to sign in",
+                                              color: AppColors.labelTextColor,
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        const CaptionText(
+                                          "256-bit Hardware-Backed Security • v2.4.0",
+                                          color: AppColors.placeholderColor,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -276,7 +278,7 @@ class _Header extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.only(top: topPadding + 30, bottom: 80),
+      padding: EdgeInsets.only(top: topPadding + 18, bottom: 52),
       decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
       child: Column(
         children: [
@@ -310,30 +312,30 @@ class _Header extends StatelessWidget {
                 top: -2,
                 right: -2,
                 child: Container(
-                  height: 15,
-                  width: 15,
+                  height: 12,
+                  width: 12,
                   decoration: BoxDecoration(
                     color: AppColors.workingColor,
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.whiteColor, width: 2.5),
+                    border: Border.all(color: AppColors.whiteColor, width: 2),
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           const AppText(
             "AttendEase",
-            fontSize: 26,
-            fontWeight: FontWeight.w800,
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
             color: AppColors.whiteColor,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           AppText(
             "SMART EMPLOYEE ATTENDANCE",
-            fontSize: 11,
+            fontSize: 9,
             fontWeight: FontWeight.w600,
-            letterSpacing: 1.6,
+            letterSpacing: 1.2,
             color: AppColors.whiteColor.withOpacity(.75),
           ),
         ],
@@ -348,7 +350,7 @@ class _GeofenceBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: AppColors.successColor.withOpacity(.1),
         borderRadius: BorderRadius.circular(20),
@@ -357,17 +359,17 @@ class _GeofenceBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            height: 6,
-            width: 6,
+            height: 5,
+            width: 5,
             decoration: const BoxDecoration(
               color: AppColors.successColor,
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           const AppText(
             "Geofence Active",
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: FontWeight.w600,
             color: AppColors.successColor,
           ),
@@ -385,23 +387,23 @@ class _InfoBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
       decoration: BoxDecoration(
         color: AppColors.fieldFillColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
         children: [
           const Icon(
             Icons.phonelink_lock_outlined,
-            size: 16,
+            size: 14,
             color: AppColors.labelTextColor,
           ),
-          const SizedBox(width: 10),
+          const SizedBox(width: 8),
           Expanded(
             child: AppText(
               text,
-              fontSize: 12,
+              fontSize: 11,
               fontStyle: FontStyle.italic,
               color: AppColors.labelTextColor,
             ),

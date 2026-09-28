@@ -37,4 +37,15 @@ class PermissionService {
   Future<bool> isGpsEnabled() => Geolocator.isLocationServiceEnabled();
 
   Future<void> openLocationSettings() => Geolocator.openLocationSettings();
+
+  Future<void> ensurePreciseLocation() async {
+    final accuracy = await Geolocator.getLocationAccuracy();
+    if (accuracy == LocationAccuracyStatus.reduced) {
+      throw const PermissionFailure(
+        message:
+        "Only approximate location is allowed. Please permanently enable 'Use precise location' for this app from Settings.",
+        code: "GPS_PERMISSION_REQUIRED",
+      );
+    }
+  }
 }

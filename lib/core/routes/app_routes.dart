@@ -1,3 +1,4 @@
+import 'package:attendease/view/attendance/history_screen.dart';
 import 'package:attendease/view/bottombar/bottombar_screen.dart';
 import 'package:flutter/material.dart';
 
@@ -41,6 +42,9 @@ class AppRoutes {
 
       case RouteNames.deviceChangeRequest:
         return _route(const DeviceChangeRequestScreen(), settings);
+
+    case RouteNames.history:
+    return _route(const AttendanceHistoryScreen(), settings);
 
       default:
         return _route(_UnknownRouteScreen(routeName: settings.name), settings);

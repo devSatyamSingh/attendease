@@ -4,12 +4,16 @@ import '../core/errors/failure.dart';
 import '../model/device_model.dart';
 import '../model/login_response_model.dart';
 import '../repo/auth_repo.dart';
-import '../repo/profile_repo.dart';
 import '../services/storage_service.dart';
+import 'attendance_viewmodel.dart';
+import 'device_viewmodel.dart';
+import 'profile_viewmodel.dart';
+import 'leave_viewmodel.dart';
+import 'holiday_viewmodel.dart'; // profileRepositoryProvider yahin se aata hai
 
-final authRepositoryProvider = Provider<AuthRepository>((ref) => AuthRepository());
-final profileRepositoryProvider = Provider<ProfileRepository>((ref) => ProfileRepository());
-
+final authRepositoryProvider = Provider<AuthRepository>(
+      (ref) => AuthRepository(),
+);
 
 final sessionCheckProvider = FutureProvider<bool>((ref) async {
   final storage = StorageService();
@@ -32,6 +36,31 @@ class AuthViewModel extends AsyncNotifier<LoginResponseModel?> {
     return null;
   }
 
+  /// Purane user ka saara cached data hatao.
+  /// Naye login ke baad screens pehli baar fresh API call karengi.
+  void _resetUserData() {
+    // Profile / device / session
+    ref.invalidate(profileViewModelProvider);
+    ref.invalidate(deviceViewModelProvider);
+    ref.invalidate(sessionCheckProvider);
+
+    // Attendance
+    ref.invalidate(attendanceViewModelProvider);
+    ref.invalidate(recentAttendanceProvider);
+    ref.invalidate(attendanceHistoryViewModelProvider);
+
+    // Leave
+    ref.invalidate(leaveTypesProvider);
+    ref.invalidate(leaveBalanceViewModelProvider);
+    ref.invalidate(recentLeaveRequestsProvider);
+    ref.invalidate(leaveStatusCountsProvider);
+    ref.invalidate(leaveHistoryViewModelProvider);
+    ref.invalidate(applyLeaveViewModelProvider);
+
+    // Holidays
+    ref.invalidate(holidayViewModelProvider);
+  }
+
   Future<bool> login({
     required String loginId,
     required String password,
@@ -44,6 +73,10 @@ class AuthViewModel extends AsyncNotifier<LoginResponseModel?> {
           () => repo.login(login: loginId, password: password, device: device),
     );
 
+    if (!result.hasError) {
+      _resetUserData(); // naye user ke liye fresh start
+    }
+
     state = result;
     return !result.hasError;
   }
@@ -55,4 +88,6 @@ class AuthViewModel extends AsyncNotifier<LoginResponseModel?> {
 }
 
 final authViewModelProvider =
-AsyncNotifierProvider<AuthViewModel, LoginResponseModel?>(AuthViewModel.new);
+AsyncNotifierProvider<AuthViewModel, LoginResponseModel?>(
+  AuthViewModel.new,
+);

@@ -1,5 +1,5 @@
+import 'dart:async';
 import 'package:geolocator/geolocator.dart';
-import '../core/constants/app_constants.dart';
 import '../core/errors/failure.dart';
 import 'permission_service.dart';
 
@@ -10,6 +10,8 @@ class LocationService {
 
   final PermissionService _permissionService = PermissionService();
 
+  /// Fresh GPS fix laata hai. Koi radius / accuracy validation yahan nahi hai,
+  /// wo backend karega. Purani (last known) location kabhi use nahi hoti.
   Future<Position> getCurrentLocation() async {
     await _permissionService.ensureLocationPermission();
 
@@ -21,39 +23,69 @@ class LocationService {
       );
     }
 
-    Position position;
+    await _permissionService.ensurePreciseLocation();
+
     try {
-      position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.best,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
+      return await _bestFreshFix();
     } on LocationServiceDisabledException {
       throw const LocationFailure(
         message: "Location services are disabled.",
         code: "GPS_PERMISSION_REQUIRED",
       );
-    } catch (_) {
-      final lastKnown = await Geolocator.getLastKnownPosition();
-      if (lastKnown == null) {
-        throw const LocationFailure(
-          message:
-          "Could not get your location. Please try again in an open area.",
-          code: "GPS_ACCURACY_LOW",
-        );
-      }
-      position = lastKnown;
-    }
-
-    if (position.accuracy > AppConstants.gpsAccuracyThresholdMeters) {
-      throw LocationFailure(
+    } on TimeoutException {
+      throw const LocationFailure(
         message:
-        "GPS accuracy is too low (±${position.accuracy.round()}m). Move to an open area and try again.",
-        code: "GPS_ACCURACY_LOW",
+        "Couldn't get a GPS fix. Please wait a few seconds near a window or open area and try again.",
+        code: "GPS_UNAVAILABLE",
+      );
+    } catch (_) {
+      throw const LocationFailure(
+        message: "Couldn't read your location. Please try again.",
+        code: "GPS_UNAVAILABLE",
       );
     }
-    return position;
+  }
+
+  /// Kuch seconds tak live readings sunta hai aur sabse accurate wali deta hai.
+  /// Ye validation nahi hai, sirf best reading chunna hai.
+  Future<Position> _bestFreshFix() async {
+    Position? best;
+    final completer = Completer<Position>();
+    late StreamSubscription<Position> sub;
+
+    final timer = Timer(const Duration(seconds: 12), () {
+      if (completer.isCompleted) return;
+      if (best != null) {
+        completer.complete(best!);
+      } else {
+        completer.completeError(TimeoutException("no gps fix"));
+      }
+    });
+
+    sub = Geolocator.getPositionStream(
+      locationSettings: const LocationSettings(
+        accuracy: LocationAccuracy.best,
+        distanceFilter: 0,
+      ),
+    ).listen(
+          (p) {
+        if (best == null || p.accuracy < best!.accuracy) best = p;
+        // Achhi reading mil gayi to jaldi return (rejection nahi, sirf early stop).
+        if (p.accuracy <= 20 && !completer.isCompleted) {
+          completer.complete(best!);
+        }
+      },
+      onError: (e) {
+        if (!completer.isCompleted) completer.completeError(e);
+      },
+    );
+
+    try {
+      return await completer.future;
+    } finally {
+      timer.cancel();
+      await sub.cancel();
+    }
   }
 
   bool isMockLocation(Position position) => position.isMocked;

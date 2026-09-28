@@ -5,6 +5,7 @@ import '../../core/errors/failure.dart';
 import '../../core/routes/route_name.dart';
 import '../../model/holiday_model.dart';
 import '../../model/leave_model.dart';
+import '../../utils/app_topbar.dart';
 import '../../viewmodel/holiday_viewmodel.dart';
 import '../../viewmodel/leave_viewmodel.dart';
 import '../../widget/app_colors.dart';
@@ -50,8 +51,7 @@ class _LeavesScreenState extends ConsumerState<LeavesScreen> {
               child: ListView(
                 padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 16),
                 children: [
-                  _buildTopBar(context),
-                  const SizedBox(height: 14),
+                  const AppTopBar(title: "My Leaves"),                  const SizedBox(height: 14),
                   _buildSectionHeader(
                     icon: Icons.account_balance_wallet_outlined,
                     title: "Leave Balances",

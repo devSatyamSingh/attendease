@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/routes/route_name.dart';
 import '../viewmodel/auth_viewmodel.dart';
@@ -111,57 +112,64 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     final size = MediaQuery.sizeOf(context);
     final iconSize = size.width * 0.24 > 100 ? 100.0 : size.width * 0.24;
 
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
-        child: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 480),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 28),
-                child: Column(
-                  children: [
-                    const Spacer(flex: 4),
-                    _buildAnimatedBrandBlock(size, iconSize),
-                    const Spacer(flex: 1),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      transitionBuilder: (child, animation) =>
-                          FadeTransition(opacity: animation, child: child),
-                      child: SizedBox(
-                        key: ValueKey(_colorIndex),
-                        height: 34,
-                        width: 34,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2.6,
-                          valueColor: AlwaysStoppedAnimation<Color>(_loaderColors[_colorIndex]),
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        statusBarBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        body: Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+          child: SafeArea(
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Column(
+                    children: [
+                      const Spacer(flex: 4),
+                      _buildAnimatedBrandBlock(size, iconSize),
+                      const Spacer(flex: 1),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 300),
+                        transitionBuilder: (child, animation) =>
+                            FadeTransition(opacity: animation, child: child),
+                        child: SizedBox(
+                          key: ValueKey(_colorIndex),
+                          height: 34,
+                          width: 34,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.6,
+                            valueColor: AlwaysStoppedAnimation<Color>(_loaderColors[_colorIndex]),
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 18),
-                    _AnimatedProgressTrack(controller: _progressController),
-                    const Spacer(flex: 3),
-                    const _ProtocolBadge(),
-                    const SizedBox(height: 9),
-                    AppText(
-                      "AttendEase Enterprise Edition • v2.4.0",
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: AppColors.whiteColor.withOpacity(.85),
-                    ),
-                    const SizedBox(height: 4),
-                    AppText(
-                      "Secured with Hardware-Backed Biometrics & Geofencing",
-                      fontSize: 11,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.whiteColor.withOpacity(.55),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 24),
-                  ],
+                      const SizedBox(height: 18),
+                      _AnimatedProgressTrack(controller: _progressController),
+                      const Spacer(flex: 3),
+                      const _ProtocolBadge(),
+                      const SizedBox(height: 9),
+                      AppText(
+                        "AttendEase Enterprise Edition • v2.4.0",
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: AppColors.whiteColor.withOpacity(.85),
+                      ),
+                      const SizedBox(height: 4),
+                      AppText(
+                        "Secured with Hardware-Backed Biometrics & Geofencing",
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.whiteColor.withOpacity(.55),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 24),
+                    ],
+                  ),
                 ),
               ),
             ),

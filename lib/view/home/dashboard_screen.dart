@@ -13,6 +13,7 @@ import '../../viewmodel/profile_viewmodel.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
+import '../attendance/attendance_status.dart';
 import '../attendance/check_in_out_screen.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
@@ -69,12 +70,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       builder: (dialogContext) => AlertDialog(
         title: const AppText(
           "Location needed",
-          fontSize: 16,
-          fontWeight: FontWeight.w700,
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
         ),
         content: AppText(
           failure.message,
-          fontSize: 13,
+          fontSize: 12,
           color: AppColors.labelTextColor,
         ),
         actions: [
@@ -82,7 +83,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             onPressed: () => Navigator.pop(dialogContext),
             child: const AppText(
               "Not now",
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -97,8 +98,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             },
             child: AppText(
               permanentlyDenied ? "Open Settings" : "Allow",
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
             ),
           ),
@@ -142,12 +143,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final profileAsync = ref.watch(profileViewModelProvider);
     final firstName = profileAsync.value?.name.split(" ").first;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    // LeavesScreen jaisa hi responsive padding + max width
+    final hPad = (screenWidth * 0.045).clamp(12.0, 24.0);
+    final maxContentWidth = screenWidth > 700 ? 520.0 : double.infinity;
+    // Hero ring screen ke hisaab se scale hoga (64 – 78)
+    final ringSize = (screenWidth * 0.2).clamp(64.0, 78.0);
+
     return Scaffold(
       backgroundColor: AppColors.scaffoldBgColor,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 560),
+            constraints: BoxConstraints(maxWidth: maxContentWidth),
             child: RefreshIndicator(
               color: AppColors.primaryColor,
               onRefresh: () async {
@@ -158,19 +166,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 ]);
               },
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 16),
                 children: [
-                  _buildTopBar(context),
-                  const SizedBox(height: 18),
-                  _buildGreetingRow(context, firstName),
-                  const SizedBox(height: 18),
+                  _buildHeader(context, firstName),
+                  const SizedBox(height: 14),
                   attendanceState.when(
                     loading: () => const _StatusCardSkeleton(),
                     error: (error, _) => _buildStatusErrorCard(context, error),
                     data: (today) => Column(
                       children: [
-                        _buildStatusCard(context, today),
-                        const SizedBox(height: 16),
+                        _buildHeroCard(context, today, ringSize),
+                        const SizedBox(height: 12),
                         _buildActionArea(
                           context,
                           today,
@@ -179,9 +186,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       ],
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   _buildRecentActivityHeader(context),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
                   recentActivityAsync.when(
                     loading: () => const _ActivityListSkeleton(),
                     error: (error, _) =>
@@ -189,15 +196,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     data: (items) => items.isEmpty
                         ? _buildEmptyActivityCard()
                         : Column(
-                            children: items
-                                .map(
-                                  (item) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: _buildActivityCard(context, item),
-                                  ),
-                                )
-                                .toList(),
-                          ),
+                      children: items
+                          .map(
+                            (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _buildActivityCard(context, item),
+                        ),
+                      )
+                          .toList(),
+                    ),
                   ),
                 ],
               ),
@@ -208,66 +215,58 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  // ==================== TOP BAR ====================
-  Widget _buildTopBar(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        const Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CaptionText("Welcome back,"),
-              AppText("Dashboard", fontSize: 17, fontWeight: FontWeight.w600),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: () {
-            // TODO: Navigator.pushNamed(context, AppRoutes.notifications);
-          },
-          icon: const Icon(
-            Icons.notifications_none_rounded,
-            color: AppColors.headlineTextColor,
-          ),
-        ),
-      ],
-    );
-  }
+  // ==================== HEADER (avatar + greeting + bell) ====================
+  Widget _buildHeader(BuildContext context, String? firstName) {
+    final hasName = firstName?.isNotEmpty ?? false;
 
-  // ==================== GREETING ROW ====================
-  Widget _buildGreetingRow(BuildContext context, String? firstName) {
     return Row(
       children: [
         CircleAvatar(
-          radius: 22,
+          radius: 20,
           backgroundColor: AppColors.primaryLight,
           child: AppText(
-            (firstName?.isNotEmpty ?? false)
-                ? firstName![0].toUpperCase()
-                : "?",
-            fontSize: 19,
+            hasName ? firstName![0].toUpperCase() : "?",
+            fontSize: 16,
             fontWeight: FontWeight.w600,
             color: AppColors.primaryColor,
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 11),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              CaptionText("${AppUtils.getGreeting()},"),
+              const SizedBox(height: 1),
               AppText(
-                "${AppUtils.getGreeting()}, ${firstName ?? ''}".trim(),
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+                hasName ? firstName! : "Welcome back",
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 2),
-              CaptionText(
-                DateFormat("EEEE, MMM d, yyyy").format(DateTime.now()),
-              ),
             ],
+          ),
+        ),
+        InkWell(
+          onTap: () {
+            // TODO: Navigator.pushNamed(context, AppRoutes.notifications);
+          },
+          customBorder: const CircleBorder(),
+          child: Container(
+            height: 38,
+            width: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: AppColors.cardBgColor,
+              shape: BoxShape.circle,
+              border: Border.all(color: AppColors.borderColor),
+            ),
+            child: const Icon(
+              Icons.notifications_none_rounded,
+              size: 20,
+              color: AppColors.headlineTextColor,
+            ),
           ),
         ),
       ],
@@ -275,139 +274,261 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // ==================== HERO STATUS CARD ====================
-  Widget _buildStatusCard(BuildContext context, AttendanceModel? today) {
+  Widget _buildHeroCard(
+      BuildContext context,
+      AttendanceModel? today,
+      double ringSize,
+      ) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
-    final String statusLabel = checkedOut
+    final ds = today?.displayStatus;
+    final bool blocked =
+        ds == AttendanceDisplayStatus.onLeave ||
+            ds == AttendanceDisplayStatus.holiday;
+
+    final String statusLabel = blocked
+        ? today!.statusLabel.toUpperCase()
+        : (checkedOut
         ? "CHECKED OUT"
-        : (checkedIn ? "WORKING" : "NOT CHECKED IN");
-    final Color pillDotColor = checkedOut
+        : (checkedIn ? "WORKING" : "NOT CHECKED IN"));
+    final Color pillDotColor = blocked
+        ? AppColors.secondaryColor
+        : (checkedOut
         ? AppColors.checkedOutColor
-        : (checkedIn ? AppColors.workingColor : AppColors.notCheckedInColor);
+        : (checkedIn
+        ? AppColors.workingColor
+        : AppColors.notCheckedInColor));
+
+    final int? worked = _workedMinutes(today);
+    final int goalMinutes = AppConstants.defaultDailyGoalHours * 60;
+    final double percent = worked == null
+        ? 0.0
+        : (worked / goalMinutes).clamp(0.0, 1.0);
+
+    final String captionLabel = checkedOut
+        ? "CHECKED OUT AT"
+        : (checkedIn
+        ? "CHECKED IN AT"
+        : (blocked ? "TODAY" : "READY WHEN YOU ARE"));
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: AppColors.primaryGradient,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: AppColors.primaryColor.withOpacity(.3),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: AppColors.primaryColor.withOpacity(.28),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
           ),
         ],
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatusPill(statusLabel, pillDotColor),
-              if (today?.deviceId != null)
-                Flexible(
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(22),
+        child: Stack(
+          children: [
+            // ---- decorative circles (modern glass feel) ----
+            Positioned(
+              top: -34,
+              right: -24,
+              child: Container(
+                height: 120,
+                width: 120,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.whiteColor.withOpacity(.08),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -46,
+              left: -30,
+              child: Container(
+                height: 140,
+                width: 140,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.whiteColor.withOpacity(.06),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // ---- row 1: status pill + verified ----
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Icon(
-                        Icons.verified_user_outlined,
-                        size: 14,
-                        color: AppColors.whiteColor,
+                      _buildStatusPill(statusLabel, pillDotColor),
+                      if (today?.deviceId != null)
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.verified_user_outlined,
+                                size: 13,
+                                color: AppColors.whiteColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: AppText(
+                                  "Verified device",
+                                  fontSize: 11,
+                                  color: AppColors.whiteColor.withOpacity(.85),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ---- row 2: time block + progress ring ----
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            AppText(
+                              captionLabel,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.2,
+                              color: AppColors.whiteColor.withOpacity(.7),
+                            ),
+                            const SizedBox(height: 4),
+                            if (checkedIn || checkedOut)
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.end,
+                                children: [
+                                  AppText(
+                                    _timeOnly(
+                                      checkedOut
+                                          ? today!.actualCheckOut!
+                                          : today!.actualCheckIn!,
+                                    ),
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.w600,
+                                    color: AppColors.whiteColor,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 5),
+                                    child: AppText(
+                                      _meridiem(
+                                        checkedOut
+                                            ? today.actualCheckOut!
+                                            : today.actualCheckIn!,
+                                      ),
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.whiteColor.withOpacity(
+                                        .8,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            else
+                              AppText(
+                                blocked
+                                    ? today!.statusSubtitle
+                                    : "Start your day",
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.whiteColor,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            const SizedBox(height: 6),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.access_time_rounded,
+                                  size: 13,
+                                  color: AppColors.whiteColor.withOpacity(.75),
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: AppText(
+                                    "${_formatExpected(today?.expectedLoginTime)} – ${_formatExpected(today?.expectedLogoutTime)}",
+                                    fontSize: 11,
+                                    color: AppColors.whiteColor.withOpacity(
+                                      .75,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: AppText(
-                          "Verified device",
-                          fontSize: 12,
-                          color: AppColors.whiteColor.withOpacity(.85),
-                          overflow: TextOverflow.ellipsis,
+                      const SizedBox(width: 12),
+                      _buildProgressRing(
+                        size: ringSize,
+                        percent: percent,
+                        showPercent: checkedIn || checkedOut,
+                        fallbackIcon: blocked
+                            ? today!.statusIcon
+                            : Icons.fingerprint_rounded,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ---- row 3: 3 glass stat tiles ----
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildHeroTile(
+                          icon: Icons.login_rounded,
+                          label: "CHECK IN",
+                          value: checkedIn
+                              ? _fullTime(today!.actualCheckIn!)
+                              : "--:--",
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildHeroTile(
+                          icon: Icons.logout_rounded,
+                          label: "CHECK OUT",
+                          value: checkedOut
+                              ? _fullTime(today!.actualCheckOut!)
+                              : (checkedIn ? "Working" : "--:--"),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: _buildHeroTile(
+                          icon: Icons.timelapse_rounded,
+                          label: "WORKED",
+                          value: worked != null ? _durationLabel(worked) : "--",
                         ),
                       ),
                     ],
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 18),
-          AppText(
-            checkedOut
-                ? "CHECKED OUT AT"
-                : (checkedIn ? "CHECKED IN AT" : "READY WHEN YOU ARE"),
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 1.4,
-            color: AppColors.whiteColor.withOpacity(.7),
-          ),
-          const SizedBox(height: 6),
-          if (checkedIn || checkedOut)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                AppText(
-                  _timeOnly(
-                    checkedOut ? today!.actualCheckOut! : today!.actualCheckIn!,
-                  ),
-                  fontSize: 30,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.whiteColor,
-                ),
-                const SizedBox(width: 6),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: AppText(
-                    _meridiem(
-                      checkedOut
-                          ? today!.actualCheckOut!
-                          : today!.actualCheckIn!,
-                    ),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.whiteColor.withOpacity(.8),
-                  ),
-                ),
-              ],
-            )
-          else
-            AppText(
-              "Tap Check In below to start your day",
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-              color: AppColors.whiteColor,
+                ],
+              ),
             ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.access_time_rounded,
-                size: 14,
-                color: AppColors.whiteColor.withOpacity(.75),
-              ),
-              const SizedBox(width: 6),
-              Flexible(
-                child: AppText(
-                  "${_formatExpected(today?.expectedLoginTime)} – ${_formatExpected(today?.expectedLogoutTime)}",
-                  fontSize: 12,
-                  color: AppColors.whiteColor.withOpacity(.75),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-          if (checkedIn) ...[
-            const SizedBox(height: 18),
-            _buildWorkedSoFarCard(today!),
           ],
-        ],
+        ),
       ),
     );
   }
 
   Widget _buildStatusPill(String status, Color dotColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: AppColors.whiteColor.withOpacity(.15),
         borderRadius: BorderRadius.circular(20),
@@ -416,14 +537,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            height: 7,
-            width: 7,
+            height: 6,
+            width: 6,
             decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 6),
+          const SizedBox(width: 5),
           AppText(
             status,
-            fontSize: 11,
+            fontSize: 10,
             fontWeight: FontWeight.w600,
             letterSpacing: .5,
             color: AppColors.whiteColor,
@@ -433,77 +554,100 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  Widget _buildWorkedSoFarCard(AttendanceModel today) {
-    final elapsedMinutes =
-        today.workedMinutes ??
-        DateTime.now().difference(today.actualCheckIn!.toLocal()).inMinutes;
-    final goalMinutes = AppConstants.defaultDailyGoalHours * 60;
-    final percent = (elapsedMinutes / goalMinutes).clamp(0.0, 1.0);
-    final h = elapsedMinutes ~/ 60;
-    final m = elapsedMinutes % 60;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.whiteColor.withOpacity(.12),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
+  Widget _buildProgressRing({
+    required double size,
+    required double percent,
+    required bool showPercent,
+    required IconData fallbackIcon,
+  }) {
+    return SizedBox(
+      height: size,
+      width: size,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(
-                    Icons.timelapse_rounded,
-                    size: 14,
-                    color: AppColors.secondaryColor,
-                  ),
-                  const SizedBox(width: 6),
-                  AppText(
-                    "Worked so far",
-                    fontSize: 11,
-                    color: AppColors.whiteColor.withOpacity(.9),
-                  ),
-                ],
-              ),
-              AppText(
-                "${h}h ${m.toString().padLeft(2, '0')}m",
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.whiteColor,
-              ),
-            ],
+          SizedBox.expand(
+            child: CircularProgressIndicator(
+              value: 1,
+              strokeWidth: 6,
+              color: AppColors.whiteColor.withOpacity(.18),
+            ),
           ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: LinearProgressIndicator(
+          SizedBox.expand(
+            child: CircularProgressIndicator(
               value: percent,
-              minHeight: 5,
-              backgroundColor: AppColors.whiteColor.withOpacity(.2),
+              strokeWidth: 6,
+              backgroundColor: Colors.transparent,
               valueColor: const AlwaysStoppedAnimation<Color>(
                 AppColors.secondaryColor,
               ),
+              strokeCap: StrokeCap.round,
             ),
           ),
-          const SizedBox(height: 8),
+          if (showPercent)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AppText(
+                  "${(percent * 100).round()}%",
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.whiteColor,
+                ),
+                AppText(
+                  "of goal",
+                  fontSize: 9,
+                  color: AppColors.whiteColor.withOpacity(.75),
+                ),
+              ],
+            )
+          else
+            Icon(fallbackIcon, size: 26, color: AppColors.whiteColor),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroTile({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppColors.whiteColor.withOpacity(.13),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.whiteColor.withOpacity(.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              AppText(
-                "${(percent * 100).round()}% of daily goal",
-                fontSize: 11,
-                color: AppColors.whiteColor.withOpacity(.7),
-              ),
-              AppText(
-                "${AppConstants.defaultDailyGoalHours}h target",
-                fontSize: 11,
-                color: AppColors.whiteColor.withOpacity(.7),
+              Icon(icon, size: 11, color: AppColors.whiteColor.withOpacity(.75)),
+              const SizedBox(width: 4),
+              Flexible(
+                child: AppText(
+                  label,
+                  fontSize: 9,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .5,
+                  color: AppColors.whiteColor.withOpacity(.75),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
+          ),
+          const SizedBox(height: 5),
+          AppText(
+            value,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: AppColors.whiteColor,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -512,26 +656,54 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   // ==================== ACTION AREA (Check In / Check Out / Done) ====================
   Widget _buildActionArea(
-    BuildContext context,
-    AttendanceModel? today,
-    bool isBusy,
-  ) {
+      BuildContext context,
+      AttendanceModel? today,
+      bool isBusy,
+      ) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
+    final ds = today?.displayStatus;
+
+    // Leave / Holiday: check-in allowed nahi.
+    if (ds == AttendanceDisplayStatus.onLeave ||
+        ds == AttendanceDisplayStatus.holiday) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        decoration: BoxDecoration(
+          color: AppColors.primaryColor.withOpacity(.1),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Row(
+          children: [
+            Icon(today!.statusIcon, size: 18, color: AppColors.primaryColor),
+            const SizedBox(width: 10),
+            Expanded(
+              child: AppText(
+                "${today.statusSubtitle} — no check-in needed today",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryColor,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
 
     if (checkedOut) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: AppColors.successColor.withOpacity(.1),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(16),
         ),
         child: Row(
           children: [
             Container(
-              height: 36,
-              width: 36,
+              height: 34,
+              width: 34,
               alignment: Alignment.center,
               decoration: const BoxDecoration(
                 color: AppColors.successColor,
@@ -540,11 +712,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               child: const Icon(
                 Icons.check_rounded,
                 color: AppColors.whiteColor,
-                size: 18,
+                size: 17,
               ),
             ),
-            const SizedBox(width: 14),
-            Expanded(
+            const SizedBox(width: 12),
+            const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -554,12 +726,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     fontWeight: FontWeight.w600,
                     color: AppColors.successColor,
                   ),
-                  const SizedBox(height: 2),
-                  const AppText(
-                    "See you tomorrow!",
-                    fontSize: 12,
-                    color: AppColors.bodyTextColor,
-                  ),
+                  SizedBox(height: 2),
+                  CaptionText("See you tomorrow!"),
                 ],
               ),
             ),
@@ -569,89 +737,68 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     }
 
     if (checkedIn) {
-      return InkWell(
-        borderRadius: BorderRadius.circular(18),
+      return _buildActionButton(
         onTap: isBusy ? null : () => _handleCheckOut(context),
-        child: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: AppColors.errorColor,
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: AppColors.errorColor.withOpacity(.3),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+        color: AppColors.errorColor,
+        title: "CHECK OUT",
+        subtitle: "Tap to end shift",
+        leading: isBusy
+            ? const SizedBox(
+          height: 16,
+          width: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.whiteColor,
           ),
-          child: Row(
-            children: [
-              Container(
-                height: 36,
-                width: 36,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: AppColors.whiteColor.withOpacity(.15),
-                  shape: BoxShape.circle,
-                ),
-                child: isBusy
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: AppColors.whiteColor,
-                        ),
-                      )
-                    : const Icon(
-                        Icons.logout_rounded,
-                        color: AppColors.whiteColor,
-                        size: 18,
-                      ),
-              ),
-              const SizedBox(width: 14),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    AppText(
-                      "CHECK OUT",
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.whiteColor,
-                    ),
-                    SizedBox(height: 2),
-                    AppText(
-                      "Tap to end shift",
-                      fontSize: 11,
-                      color: AppColors.whiteColor,
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
+        )
+            : const Icon(
+          Icons.logout_rounded,
+          color: AppColors.whiteColor,
+          size: 18,
         ),
       );
     }
 
     // Not checked in yet.
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
+    return _buildActionButton(
       onTap: isBusy ? null : () => _openCheckIn(context),
+      gradient: AppColors.primaryGradient,
+      shadowColor: AppColors.primaryColor,
+      title: "CHECK IN",
+      subtitle: "Tap to verify location & mark attendance",
+      leading: const Icon(
+        Icons.fingerprint_rounded,
+        color: AppColors.whiteColor,
+        size: 20,
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
+    required VoidCallback? onTap,
+    required String title,
+    required String subtitle,
+    required Widget leading,
+    Color? color,
+    Gradient? gradient,
+    Color? shadowColor,
+  }) {
+    final Color shadow = shadowColor ?? color ?? AppColors.primaryColor;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          gradient: AppColors.primaryGradient,
-          borderRadius: BorderRadius.circular(18),
+          color: color,
+          gradient: gradient,
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: AppColors.primaryColor.withOpacity(.3),
-              blurRadius: 14,
-              offset: const Offset(0, 8),
+              color: shadow.withOpacity(.3),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
@@ -665,31 +812,32 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 color: AppColors.whiteColor.withOpacity(.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.fingerprint_rounded,
-                color: AppColors.whiteColor,
-                size: 18,
-              ),
+              child: leading,
             ),
-            const SizedBox(width: 14),
-            const Expanded(
+            const SizedBox(width: 12),
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AppText(
-                    "CHECK IN",
+                    title,
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     color: AppColors.whiteColor,
                   ),
-                  SizedBox(height: 2),
+                  const SizedBox(height: 2),
                   AppText(
-                    "Tap to verify location & mark attendance",
+                    subtitle,
                     fontSize: 11,
-                    color: AppColors.whiteColor,
+                    color: AppColors.whiteColor.withOpacity(.9),
                   ),
                 ],
               ),
+            ),
+            const Icon(
+              Icons.arrow_forward_rounded,
+              size: 18,
+              color: AppColors.whiteColor,
             ),
           ],
         ),
@@ -704,20 +852,24 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         : "Couldn't load today's status.";
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
         children: [
-          const Icon(Icons.wifi_off_rounded, color: AppColors.errorColor),
-          const SizedBox(width: 10),
+          const Icon(
+            Icons.wifi_off_rounded,
+            size: 18,
+            color: AppColors.errorColor,
+          ),
+          const SizedBox(width: 8),
           Expanded(
             child: AppText(
               message,
-              fontSize: 13,
+              fontSize: 12,
               color: AppColors.labelTextColor,
             ),
           ),
@@ -726,7 +878,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 ref.read(attendanceViewModelProvider.notifier).refresh(),
             child: const AppText(
               "Retry",
-              fontSize: 12,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
             ),
@@ -742,10 +894,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         : "Couldn't load recent activity.";
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Row(
@@ -767,8 +919,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             onPressed: () => ref.invalidate(recentAttendanceProvider),
             child: const AppText(
               "Retry",
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
             ),
           ),
@@ -786,37 +938,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           children: [
             Icon(
               Icons.history_rounded,
-              size: 18,
+              size: 17,
               color: AppColors.headlineTextColor,
             ),
             SizedBox(width: 6),
-            AppText(
-              "Recent Activity",
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
-            ),
+            AppText("Recent Activity", fontSize: 13, fontWeight: FontWeight.w600),
           ],
         ),
-        TextButton(
-          onPressed: () {
-            Navigator.pushNamed(context, RouteNames.history);
-          },
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            minimumSize: const Size(0, 32),
-          ),
+        InkWell(
+          onTap: () => Navigator.pushNamed(context, RouteNames.history),
           child: const Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               AppText(
                 "View All",
-                fontSize: 13,
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,
               ),
               Icon(
                 Icons.chevron_right_rounded,
-                size: 18,
+                size: 16,
                 color: AppColors.primaryColor,
               ),
             ],
@@ -829,38 +971,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   Widget _buildEmptyActivityCard() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 20),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.borderColor),
       ),
       child: Column(
         children: [
           Container(
-            height: 56,
-            width: 56,
+            height: 46,
+            width: 46,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
             child: const Icon(
               Icons.calendar_today_rounded,
-              size: 24,
+              size: 20,
               color: AppColors.primaryColor,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           const AppText(
             "No activity yet",
-            fontSize: 14,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
-          const SizedBox(height: 4),
-          AppText(
+          const SizedBox(height: 3),
+          const AppText(
             "Your check-ins will show up here once you get started.",
-            fontSize: 12,
+            fontSize: 11,
             color: AppColors.labelTextColor,
             textAlign: TextAlign.center,
           ),
@@ -870,33 +1012,27 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildActivityCard(BuildContext context, AttendanceModel item) {
-    final bool isLate = (item.lateMinutes ?? 0) > 0;
-    final bool inProgress = item.actualCheckOut == null;
-    final Color badgeColor = isLate
-        ? AppColors.lateColor
-        : AppColors.successColor;
-    final Color iconBgColor = isLate
-        ? AppColors.lateColor.withOpacity(.12)
-        : AppColors.primaryColor.withOpacity(.1);
-    final IconData icon = isLate
-        ? Icons.watch_later_rounded
-        : Icons.check_circle_rounded;
-    final Color iconColor = isLate
-        ? AppColors.lateColor
-        : AppColors.primaryColor;
+    final bool inProgress =
+        item.displayStatus == AttendanceDisplayStatus.working;
+
+    final Color color = item.statusColor;
+    final IconData icon = item.statusIcon;
 
     final dateLabel = item.attendanceDate != null
         ? DateFormat("EEEE, MMM d").format(item.attendanceDate!.toLocal())
         : "—";
-    final timeRange = item.actualCheckIn != null
-        ? "${_timeOnly(item.actualCheckIn!)} ${_meridiem(item.actualCheckIn!)} → ${inProgress ? 'In Progress' : '${_timeOnly(item.actualCheckOut!)} ${_meridiem(item.actualCheckOut!)}'}"
-        : "—";
+
+    final String timeRange = item.actualCheckIn == null
+        ? item.statusSubtitle
+        : "${_fullTime(item.actualCheckIn!)} → "
+        "${item.actualCheckOut != null ? _fullTime(item.actualCheckOut!) : (inProgress ? 'Working' : '--:--')}";
+
     final workedLabel = item.workedMinutes != null
-        ? "${item.workedMinutes! ~/ 60}h ${(item.workedMinutes! % 60).toString().padLeft(2, '0')}m"
-        : "--";
+        ? _durationLabel(item.workedMinutes!)
+        : null;
 
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
         borderRadius: BorderRadius.circular(16),
@@ -906,37 +1042,33 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            height: 40,
-            width: 40,
+            height: 38,
+            width: 38,
+            alignment: Alignment.center,
             decoration: BoxDecoration(
-              color: iconBgColor,
+              color: color.withOpacity(.12),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: iconColor, size: 20),
+            child: Icon(icon, color: color, size: 18),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 11),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppText(
                   dateLabel,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                _buildStatusChip(
-                  inProgress
-                      ? "In Progress"
-                      : (isLate ? "Late (${item.lateMinutes}m)" : "Completed"),
-                  inProgress ? AppColors.infoColor : badgeColor,
-                ),
+                _buildStatusChip(item.statusLabel, color),
                 const SizedBox(height: 6),
                 AppText(
                   timeRange,
-                  fontSize: 12,
+                  fontSize: 11,
                   color: AppColors.labelTextColor,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -944,19 +1076,22 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               ],
             ),
           ),
-          const SizedBox(width: 8),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(
-              color: AppColors.fieldFillColor,
-              borderRadius: BorderRadius.circular(8),
+          if (workedLabel != null) ...[
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: AppColors.fieldFillColor,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: AppText(
+                workedLabel,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.labelTextColor,
+              ),
             ),
-            child: AppText(
-              workedLabel,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -977,10 +1112,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             width: 6,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           AppText(
             label,
-            fontSize: 10,
+            fontSize: 9,
             fontWeight: FontWeight.w600,
             color: color,
           ),
@@ -989,7 +1124,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     );
   }
 
-  // ==================== FORMAT HELPERS ====================
+  // ==================== HELPERS ====================
+  /// Worked minutes: checkout ho gaya to server value / diff, warna live elapsed.
+  int? _workedMinutes(AttendanceModel? today) {
+    if (today == null || today.actualCheckIn == null) return null;
+    if (today.workedMinutes != null) return today.workedMinutes;
+    final end = today.actualCheckOut?.toLocal() ?? DateTime.now();
+    final diff = end.difference(today.actualCheckIn!.toLocal()).inMinutes;
+    return diff < 0 ? 0 : diff;
+  }
+
+  String _durationLabel(int minutes) =>
+      "${minutes ~/ 60}h ${(minutes % 60).toString().padLeft(2, '0')}m";
+
+  String _fullTime(DateTime dt) => "${_timeOnly(dt)} ${_meridiem(dt)}";
+
   String _timeOnly(DateTime dt) {
     final local = dt.toLocal();
     final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
@@ -1020,24 +1169,45 @@ class _StatusCardSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.cardBgColor,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(22),
+        border: Border.all(color: AppColors.borderColor),
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          AppSkeletonBox(height: 22, width: 100, borderRadius: 20),
+          const SizedBox(height: 16),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              AppSkeletonBox(height: 22, width: 90, borderRadius: 20),
-              AppSkeletonBox(height: 16, width: 70, borderRadius: 20),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppSkeletonBox(height: 10, width: 90, borderRadius: 6),
+                    const SizedBox(height: 8),
+                    AppSkeletonBox(height: 30, width: 130, borderRadius: 8),
+                    const SizedBox(height: 8),
+                    AppSkeletonBox(height: 10, width: 110, borderRadius: 6),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              AppSkeletonBox(height: 70, width: 70, borderRadius: 35),
             ],
           ),
-          const SizedBox(height: 26),
-          AppSkeletonBox(height: 42, width: 140, borderRadius: 10),
-          const SizedBox(height: 20),
-          AppSkeletonBox(height: 64, borderRadius: 16),
+          const SizedBox(height: 14),
+          Row(
+            children: [
+              Expanded(child: AppSkeletonBox(height: 46, borderRadius: 14)),
+              const SizedBox(width: 8),
+              Expanded(child: AppSkeletonBox(height: 46, borderRadius: 14)),
+              const SizedBox(width: 8),
+              Expanded(child: AppSkeletonBox(height: 46, borderRadius: 14)),
+            ],
+          ),
         ],
       ),
     );
@@ -1052,9 +1222,9 @@ class _ActivityListSkeleton extends StatelessWidget {
     return Column(
       children: List.generate(
         3,
-        (i) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(14),
+            (i) => Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: AppColors.cardBgColor,
             borderRadius: BorderRadius.circular(16),
@@ -1062,8 +1232,8 @@ class _ActivityListSkeleton extends StatelessWidget {
           ),
           child: Row(
             children: [
-              AppSkeletonBox(height: 40, width: 40, borderRadius: 12),
-              const SizedBox(width: 12),
+              AppSkeletonBox(height: 38, width: 38, borderRadius: 12),
+              const SizedBox(width: 11),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

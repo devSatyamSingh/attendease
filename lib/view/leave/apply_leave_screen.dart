@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/errors/failure.dart';
 import '../../model/leave_model.dart';
+import '../../utils/app_topbar.dart';
 import '../../utils/app_utils.dart';
 import '../../viewmodel/leave_viewmodel.dart';
 import '../../widget/app_button.dart';
@@ -279,7 +280,7 @@ class _ApplyLeaveScreenState extends ConsumerState<ApplyLeaveScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       children: [
-        _buildTopBar(context),
+        const AppTopBar(title: "Apply for Leave"),
         const SizedBox(height: 10),
         if (balance != null) _buildBalanceHero(balance),
         const SizedBox(height: 10),
