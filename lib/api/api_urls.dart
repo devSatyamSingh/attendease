@@ -29,6 +29,14 @@ class ApiUrls {
 
   // ---------------- HOLIDAY ----------------
   static const String holidays = "/holidays";
+  static const String updateFcmToken = "/holidays";
+
+  static const String fcmToken = "/notifications/fcm-token"; // POST + DELETE
+  static const String notifications = "/notifications";
+  static const String notificationUnreadCount = "/notifications/unread-count";
+  static const String notificationReadAll = "/notifications/read-all";
+  static String notificationRead(int id) => "/notifications/$id/read";
+
 
   // ---------------- PROFILE ----------------
   static const String profile = "/profile";

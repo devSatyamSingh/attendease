@@ -8,6 +8,8 @@ import '../../view/home/dashboard_screen.dart';
 import '../../view/leave/leave_balance_screen.dart';
 import '../../view/leave/apply_leave_screen.dart';
 import '../../view/leave/leave_history_screen.dart';
+import '../../view/notification_screen.dart';
+import '../../view/profile/holiday_screen.dart';
 import '../../view/splash_screen.dart';
 import '../../widget/app_colors.dart';
 
@@ -30,7 +32,7 @@ class AppRoutes {
       case RouteNames.bottombar:
         return _route(const BottomBarScreen(), settings);
 
-    // ─── LEAVE MODULE ───
+      // ─── LEAVE MODULE ───
       case RouteNames.leaveBalance:
         return _route(const LeavesScreen(), settings);
 
@@ -43,9 +45,14 @@ class AppRoutes {
       case RouteNames.deviceChangeRequest:
         return _route(const DeviceChangeRequestScreen(), settings);
 
-    case RouteNames.history:
-    return _route(const AttendanceHistoryScreen(), settings);
+      case RouteNames.history:
+        return _route(const AttendanceHistoryScreen(), settings);
 
+      case RouteNames.holidays:
+        return _route(const HolidaysScreen(), settings);
+
+      case RouteNames.notifications:
+        return _route(const NotificationScreen(), settings);
       default:
         return _route(_UnknownRouteScreen(routeName: settings.name), settings);
     }

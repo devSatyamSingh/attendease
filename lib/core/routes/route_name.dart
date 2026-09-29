@@ -7,10 +7,12 @@ class RouteNames {
   static const String dashboard = "/dashboard";
   static const String bottombar = "/bottombar";
   static const String history = "/history";
+  static const String holidays = "/history";
   static const String monthlyReport = "/monthly-report";
   static const String leaveBalance = "/leave-balance";
   static const String applyLeave = "/apply-leave";
   static const String leaveHistory = "/leave-history";
   static const String profile = "/profile";
   static const String noInternet = "/no-internet";
+  static const String notifications = "/notification";
 }

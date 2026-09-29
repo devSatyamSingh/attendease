@@ -271,12 +271,12 @@ class _ProfileContent extends ConsumerWidget {
             label: "Expected Timing",
             value: "${_formatTime(profile.expectedLoginTime)} – ${_formatTime(profile.expectedLogoutTime)}",
           ),
-          const Divider(height: 20),
-          _buildDetailRow(
-            icon: Icons.hourglass_bottom_rounded,
-            label: "Grace Period",
-            value: "${profile.lateGraceMinutes} minutes window",
-          ),
+          // const Divider(height: 20),
+          // _buildDetailRow(
+          //   icon: Icons.hourglass_bottom_rounded,
+          //   label: "Grace Period",
+          //   value: "${profile.lateGraceMinutes} minutes window",
+          // ),
         ],
       ),
     );

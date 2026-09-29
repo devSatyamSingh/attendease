@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/errors/failure.dart';
 import '../model/device_model.dart';
 import '../model/login_response_model.dart';
+import '../notification/fcm_service.dart';
 import '../repo/auth_repo.dart';
 import '../services/storage_service.dart';
 import 'attendance_viewmodel.dart';
@@ -10,6 +11,7 @@ import 'device_viewmodel.dart';
 import 'profile_viewmodel.dart';
 import 'leave_viewmodel.dart';
 import 'holiday_viewmodel.dart'; // profileRepositoryProvider yahin se aata hai
+import 'notification_viewmodel.dart';
 
 final authRepositoryProvider = Provider<AuthRepository>(
       (ref) => AuthRepository(),
@@ -59,6 +61,10 @@ class AuthViewModel extends AsyncNotifier<LoginResponseModel?> {
 
     // Holidays
     ref.invalidate(holidayViewModelProvider);
+
+    // Notifications
+    ref.invalidate(unreadCountProvider);
+    ref.invalidate(notificationListViewModelProvider);
   }
 
   Future<bool> login({
@@ -74,7 +80,15 @@ class AuthViewModel extends AsyncNotifier<LoginResponseModel?> {
     );
 
     if (!result.hasError) {
-      _resetUserData(); // naye user ke liye fresh start
+      _resetUserData();
+      await ref.read(deviceViewModelProvider.future);
+
+      // FCM token backend ko bhejo taaki server is device ko notification bhej sake.
+      // syncFcmToken errors swallow karta hai — login block nahi hota.
+      final fcmToken = await FcmService().getToken();
+      if (fcmToken != null) {
+        await ref.read(notificationRepositoryProvider).syncFcmToken(fcmToken);
+      }
     }
 
     state = result;
@@ -82,7 +96,16 @@ class AuthViewModel extends AsyncNotifier<LoginResponseModel?> {
   }
 
   Future<void> logout() async {
+    // JWT abhi valid hai, isliye FCM token backend se PEHLE hatao,
+    // warna is device pe purane user ke notifications aate rahenge.
+    final token = await FcmService().getToken();
+    if (token != null) {
+      await ref.read(notificationRepositoryProvider).removeFcmToken(token);
+    }
+    await FcmService().deleteToken();
+
     await ref.read(authRepositoryProvider).logout();
+    _resetUserData();
     state = const AsyncValue.data(null);
   }
 }

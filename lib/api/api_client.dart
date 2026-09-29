@@ -80,14 +80,14 @@ class ApiClient {
         final errorCode = _extractErrorCode(error);
         final errorMessage = _extractErrorMessage(error);
 
-        // ---- Case 1: fatal — this device/account is done. ----
-        // Runs BEFORE the 401-only check below because
-        // DEVICE_NOT_AUTHORIZED actually comes back as 403, not 401 —
-        // it would never have been caught by the old-token-refresh
-        // logic at all, which is exactly why every screen was just
-        // silently failing instead of logging the employee out.
         if (_fatalErrorCodes.contains(errorCode)) {
-          await _forceLogout(message: errorMessage);
+          final isFcmTokenRequest =
+          error.requestOptions.path.contains('/notifications/fcm-token');
+
+          if (!isFcmTokenRequest) {
+            await _forceLogout(message: errorMessage);
+          }
+
           return handler.next(error);
         }
 

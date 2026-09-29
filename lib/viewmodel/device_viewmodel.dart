@@ -9,14 +9,31 @@ final deviceRepositoryProvider = Provider<DeviceRepository>((ref) => DeviceRepos
 class DeviceViewModel extends AsyncNotifier<DeviceStatusModel> {
   @override
   FutureOr<DeviceStatusModel> build() {
-    return ref.read(deviceRepositoryProvider).getDeviceStatus();
+    return _fetchWithRetry();
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    state = await AsyncValue.guard(
-          () => ref.read(deviceRepositoryProvider).getDeviceStatus(),
-    );
+    state = await AsyncValue.guard(() => _fetchWithRetry());
+  }
+
+  /// Login ke turant baad backend me device activate hone me thoda time
+  /// lag sakta hai. activeDevice null aaye to kuch retries kar lo, taaki
+  /// user ko manually "Retry" na dabana pade.
+  Future<DeviceStatusModel> _fetchWithRetry() async {
+    final repo = ref.read(deviceRepositoryProvider);
+    const delays = [Duration(milliseconds: 800), Duration(seconds: 1), Duration(seconds: 2)];
+
+    DeviceStatusModel result = await repo.getDeviceStatus();
+    if (result.activeDevice != null) return result;
+
+    for (final delay in delays) {
+      await Future.delayed(delay);
+      result = await repo.getDeviceStatus();
+      if (result.activeDevice != null) return result;
+    }
+
+    return result;
   }
 
   Future<bool> requestChange(DeviceModel newDevice) async {

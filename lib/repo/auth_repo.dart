@@ -51,5 +51,6 @@ class AuthRepository {
     }
   }
 
+
   Future<bool> isLoggedIn() => _storageService.isLoggedIn();
 }

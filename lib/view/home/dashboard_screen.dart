@@ -6,15 +6,18 @@ import '../../core/constants/app_constants.dart';
 import '../../core/errors/failure.dart';
 import '../../core/routes/route_name.dart';
 import '../../model/attendance_model.dart';
+import '../../notification/notification_router.dart';
 import '../../services/permission_service.dart';
 import '../../utils/app_utils.dart';
 import '../../viewmodel/attendance_viewmodel.dart';
+import '../../viewmodel/notification_viewmodel.dart';
 import '../../viewmodel/profile_viewmodel.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
 import '../attendance/attendance_status.dart';
 import '../attendance/check_in_out_screen.dart';
+import '../profile/logout_dialog.dart';
 
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
@@ -30,6 +33,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => NotificationRouter.flushPending());
     WidgetsBinding.instance.addObserver(this);
     _tickTimer = Timer.periodic(const Duration(minutes: 1), (_) {
       if (mounted) setState(() {});
@@ -117,6 +121,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Future<void> _handleCheckOut(BuildContext context) async {
+    final confirmed = await AnimatedConfirmDialog.show(
+      context,
+      icon: Icons.logout_rounded,
+      iconColor: AppColors.errorColor,
+      title: "Check out now?",
+      message: "You're about to end today's shift. This can't be undone.",
+      cancelText: "Cancel",
+      confirmText: "Check Out",
+      confirmColor: AppColors.errorColor,
+    );
+
+    if (confirmed != true) return;
+    if (!mounted) return;
+
     final success = await ref
         .read(attendanceViewModelProvider.notifier)
         .checkOut();
@@ -196,15 +214,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                     data: (items) => items.isEmpty
                         ? _buildEmptyActivityCard()
                         : Column(
-                      children: items
-                          .map(
-                            (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: _buildActivityCard(context, item),
-                        ),
-                      )
-                          .toList(),
-                    ),
+                            children: items
+                                .map(
+                                  (item) => Padding(
+                                    padding: const EdgeInsets.only(bottom: 10),
+                                    child: _buildActivityCard(context, item),
+                                  ),
+                                )
+                                .toList(),
+                          ),
                   ),
                 ],
               ),
@@ -249,8 +267,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           ),
         ),
         InkWell(
-          onTap: () {
-            // TODO: Navigator.pushNamed(context, AppRoutes.notifications);
+          onTap: () async {
+            await Navigator.pushNamed(context, RouteNames.notifications);
+            ref.invalidate(unreadCountProvider);
           },
           customBorder: const CircleBorder(),
           child: Container(
@@ -275,29 +294,29 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   // ==================== HERO STATUS CARD ====================
   Widget _buildHeroCard(
-      BuildContext context,
-      AttendanceModel? today,
-      double ringSize,
-      ) {
+    BuildContext context,
+    AttendanceModel? today,
+    double ringSize,
+  ) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
     final ds = today?.displayStatus;
     final bool blocked =
         ds == AttendanceDisplayStatus.onLeave ||
-            ds == AttendanceDisplayStatus.holiday;
+        ds == AttendanceDisplayStatus.holiday;
 
     final String statusLabel = blocked
         ? today!.statusLabel.toUpperCase()
         : (checkedOut
-        ? "CHECKED OUT"
-        : (checkedIn ? "WORKING" : "NOT CHECKED IN"));
+              ? "CHECKED OUT"
+              : (checkedIn ? "WORKING" : "NOT CHECKED IN"));
     final Color pillDotColor = blocked
         ? AppColors.secondaryColor
         : (checkedOut
-        ? AppColors.checkedOutColor
-        : (checkedIn
-        ? AppColors.workingColor
-        : AppColors.notCheckedInColor));
+              ? AppColors.checkedOutColor
+              : (checkedIn
+                    ? AppColors.workingColor
+                    : AppColors.notCheckedInColor));
 
     final int? worked = _workedMinutes(today);
     final int goalMinutes = AppConstants.defaultDailyGoalHours * 60;
@@ -308,8 +327,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final String captionLabel = checkedOut
         ? "CHECKED OUT AT"
         : (checkedIn
-        ? "CHECKED IN AT"
-        : (blocked ? "TODAY" : "READY WHEN YOU ARE"));
+              ? "CHECKED IN AT"
+              : (blocked ? "TODAY" : "READY WHEN YOU ARE"));
 
     return Container(
       width: double.infinity,
@@ -625,7 +644,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         children: [
           Row(
             children: [
-              Icon(icon, size: 11, color: AppColors.whiteColor.withOpacity(.75)),
+              Icon(
+                icon,
+                size: 11,
+                color: AppColors.whiteColor.withOpacity(.75),
+              ),
               const SizedBox(width: 4),
               Flexible(
                 child: AppText(
@@ -656,10 +679,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   // ==================== ACTION AREA (Check In / Check Out / Done) ====================
   Widget _buildActionArea(
-      BuildContext context,
-      AttendanceModel? today,
-      bool isBusy,
-      ) {
+    BuildContext context,
+    AttendanceModel? today,
+    bool isBusy,
+  ) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
     final ds = today?.displayStatus;
@@ -744,18 +767,18 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         subtitle: "Tap to end shift",
         leading: isBusy
             ? const SizedBox(
-          height: 16,
-          width: 16,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.whiteColor,
-          ),
-        )
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.whiteColor,
+                ),
+              )
             : const Icon(
-          Icons.logout_rounded,
-          color: AppColors.whiteColor,
-          size: 18,
-        ),
+                Icons.logout_rounded,
+                color: AppColors.whiteColor,
+                size: 18,
+              ),
       );
     }
 
@@ -942,7 +965,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               color: AppColors.headlineTextColor,
             ),
             SizedBox(width: 6),
-            AppText("Recent Activity", fontSize: 13, fontWeight: FontWeight.w600),
+            AppText(
+              "Recent Activity",
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
           ],
         ),
         InkWell(
@@ -1025,7 +1052,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     final String timeRange = item.actualCheckIn == null
         ? item.statusSubtitle
         : "${_fullTime(item.actualCheckIn!)} → "
-        "${item.actualCheckOut != null ? _fullTime(item.actualCheckOut!) : (inProgress ? 'Working' : '--:--')}";
+              "${item.actualCheckOut != null ? _fullTime(item.actualCheckOut!) : (inProgress ? 'Working' : '--:--')}";
 
     final workedLabel = item.workedMinutes != null
         ? _durationLabel(item.workedMinutes!)
@@ -1222,7 +1249,7 @@ class _ActivityListSkeleton extends StatelessWidget {
     return Column(
       children: List.generate(
         3,
-            (i) => Container(
+        (i) => Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(

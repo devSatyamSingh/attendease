@@ -17,7 +17,7 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
-  static const _splashDuration = Duration(seconds: 4);
+  static const _splashDuration = Duration(seconds: 2);
   static const _entranceDuration = Duration(milliseconds: 750);
   static const _pulseDuration = Duration(milliseconds: 1400);
 
