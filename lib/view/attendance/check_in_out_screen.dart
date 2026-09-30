@@ -5,10 +5,12 @@ import 'package:geolocator/geolocator.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failure.dart';
 import '../../model/attendance_model.dart';
+import '../../services/device_security_service.dart';
 import '../../services/location_service.dart';
 import '../../services/permission_service.dart';
 import '../../utils/app_utils.dart';
 import '../../viewmodel/attendance_viewmodel.dart';
+import '../../viewmodel/device_security_viewmodel.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 
@@ -25,6 +27,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
   Position? _position;
   bool _locatingPreview = true;
+  bool _mockDetected = false;
+  String? _blockMessage;
 
   @override
   void initState() {
@@ -42,14 +46,26 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     super.dispose();
   }
 
+  // ==================== LOCATION + SECURITY CHECK ====================
   Future<void> _primeLocation() async {
     try {
+      // App-wide banner ko bhi fresh state do
+      await ref.read(deviceSecurityProvider.notifier).recheck();
+      final security = await DeviceSecurityService().check();
       final position = await LocationService().getCurrentLocation();
       if (!mounted) return;
+
+      final mocked = security.isMockLocation || position.isMocked;
       setState(() {
         _position = position;
         _locatingPreview = false;
+        _mockDetected = mocked || !security.isSafe;
+        _blockMessage = mocked
+            ? "Fake/Mock location detected. Please turn off mock location apps and try again."
+            : (security.isSafe ? null : security.message);
       });
+
+      if (_mockDetected) _showSecurityDialog(_blockMessage!);
     } on Failure catch (f) {
       if (!mounted) return;
       setState(() => _locatingPreview = false);
@@ -64,30 +80,25 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     }
   }
 
-  void _showLocationBlockedDialog(Failure failure) {
-    final bool permanentlyDenied =
-    failure.message.toLowerCase().contains("permanently");
+  void _showSecurityDialog(String message) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const AppText("Location needed", fontSize: 16, fontWeight: FontWeight.w500),
-        content: AppText(failure.message, fontSize: 13, color: AppColors.labelTextColor),
+        title: const AppText("Action blocked", fontSize: 16, fontWeight: FontWeight.w500),
+        content: AppText(message, fontSize: 13, color: AppColors.labelTextColor),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const AppText("Not now", fontSize: 13, fontWeight: FontWeight.w500),
+            child: const AppText("Close", fontSize: 13, fontWeight: FontWeight.w500),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
-              if (permanentlyDenied) {
-                await PermissionService().openAppSettings();
-              } else {
-                await _primeLocation();
-              }
+              await _primeLocation(); // dobara check
             },
-            child: AppText(
-              permanentlyDenied ? "Open Settings" : "Allow",
+            child: const AppText(
+              "Check again",
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -98,6 +109,62 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     );
   }
 
+  void _showLocationBlockedDialog(Failure failure) {
+    final bool permanentlyDenied =
+    failure.message.toLowerCase().contains("permanently");
+    final bool gpsUnavailable = failure.code == "GPS_UNAVAILABLE";
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: AppText(
+          gpsUnavailable ? "GPS not responding" : "Location needed",
+          fontSize: 16,
+          fontWeight: FontWeight.w500,
+        ),
+        content: AppText(failure.message, fontSize: 13, color: AppColors.labelTextColor),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const AppText("Not now", fontSize: 13, fontWeight: FontWeight.w500),
+          ),
+          if (gpsUnavailable)
+            TextButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await PermissionService().openLocationSettings();
+              },
+              child: const AppText(
+                "Location settings",
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryColor,
+              ),
+            ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              if (permanentlyDenied) {
+                await PermissionService().openAppSettings();
+              } else {
+                await _primeLocation();
+              }
+            },
+            child: AppText(
+              permanentlyDenied
+                  ? "Open Settings"
+                  : (gpsUnavailable ? "Try again" : "Allow"),
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==================== TAP HANDLER ====================
   Future<void> _handleTap(AttendanceModel? today) async {
     final notifier = ref.read(attendanceViewModelProvider.notifier);
     final bool success = (today == null || !_isCheckedIn(today))
@@ -116,8 +183,20 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     } else {
       final error = ref.read(attendanceViewModelProvider).error;
       if (error is Failure) {
+        const securityCodes = {
+          "MOCK_LOCATION_DETECTED",
+          "DEVICE_ROOTED",
+          "EMULATOR_DETECTED",
+        };
         if (error.code == "GPS_PERMISSION_REQUIRED") {
           _showLocationBlockedDialog(error);
+        } else if (securityCodes.contains(error.code)) {
+          setState(() {
+            _mockDetected = true;
+            _blockMessage = error.message;
+          });
+          ref.read(deviceSecurityProvider.notifier).recheck();
+          _showSecurityDialog(error.message);
         } else {
           AppUtils.showErrorSnackbar(context, error.message);
         }
@@ -129,16 +208,13 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
   bool _isCheckedIn(AttendanceModel a) => a.actualCheckIn != null && a.actualCheckOut == null;
   bool _isCheckedOut(AttendanceModel a) => a.actualCheckOut != null;
-
   String _formatClock(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     final s = dt.second.toString().padLeft(2, '0');
     return "$h:$m:$s";
   }
-
   String _formatAmPm(DateTime dt) => dt.hour >= 12 ? "PM" : "AM";
-
   String _formatDate(DateTime dt) {
     const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const months = [
@@ -154,12 +230,19 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     return "$hour12:$m ${local.hour >= 12 ? 'PM' : 'AM'}";
   }
 
+  // ==================== BUILD ====================
   @override
   Widget build(BuildContext context) {
     final size = MediaQuery.sizeOf(context);
     final attendanceState = ref.watch(attendanceViewModelProvider);
     final today = attendanceState.value;
     final bool isBusy = attendanceState.isLoading;
+
+    // App-wide security state (banner se sync rehne ke liye)
+    final globalSecurity = ref.watch(deviceSecurityProvider).value;
+    final bool globalBlocked = globalSecurity != null && !globalSecurity.isSafe;
+    final bool blocked = _mockDetected || globalBlocked;
+    final String? blockText = _blockMessage ?? (globalBlocked ? globalSecurity.message : null);
 
     return Scaffold(
       backgroundColor: AppColors.scaffoldBgColor,
@@ -173,10 +256,14 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                 _buildTopBar(context),
                 const SizedBox(height: 20),
                 _buildLocationCard(context),
+                if (blocked && blockText != null) ...[
+                  const SizedBox(height: 12),
+                  _buildWarningCard(blockText),
+                ],
                 const SizedBox(height: 18),
                 _buildStatusCard(context),
                 const SizedBox(height: 26),
-                _buildActionButton(context, size, today, isBusy),
+                _buildActionButton(context, size, today, isBusy, blocked),
                 const SizedBox(height: 14),
                 _buildHelperText(today),
                 const SizedBox(height: 22),
@@ -185,6 +272,28 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ==================== WARNING CARD ====================
+  Widget _buildWarningCard(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.errorColor.withOpacity(.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.errorColor.withOpacity(.4)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: AppColors.errorColor, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: AppText(message, fontSize: 12, color: AppColors.errorColor),
+          ),
+        ],
       ),
     );
   }
@@ -294,7 +403,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     );
   }
 
-  // ==================== STATUS CARD (Clock + GPS accuracy) ====================
+  // ==================== STATUS CARD (Clock) ====================
   Widget _buildStatusCard(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
@@ -354,24 +463,38 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
   }
 
   // ==================== ACTION BUTTON ====================
-  Widget _buildActionButton(BuildContext context, Size size, AttendanceModel? today, bool isBusy) {
+  Widget _buildActionButton(
+      BuildContext context,
+      Size size,
+      AttendanceModel? today,
+      bool isBusy,
+      bool blocked,
+      ) {
     final double buttonSize = size.width * 0.50 > 160 ? 160 : size.width * 0.50;
 
     final bool checkedOut = today != null && _isCheckedOut(today);
     final bool checkedIn = today != null && _isCheckedIn(today);
-    final bool active = !checkedOut && !isBusy;
+    final bool active = !checkedOut && !isBusy && !blocked;
 
     final String label = checkedOut ? "DONE" : (checkedIn ? "CHECK OUT" : "CHECK IN");
     final IconData icon = checkedOut
         ? Icons.check_circle_rounded
-        : (checkedIn ? Icons.logout_rounded : Icons.fingerprint_rounded);
-    final Gradient? gradient = checkedOut
+        : (blocked
+        ? Icons.block_rounded
+        : (checkedIn ? Icons.logout_rounded : Icons.fingerprint_rounded));
+
+    // Blocked ya done -> grey, warna gradient
+    final bool greyed = checkedOut || blocked;
+    final Gradient? gradient = greyed
         ? null
         : LinearGradient(
       colors: checkedIn
           ? [AppColors.errorColor, AppColors.rejectedColor]
           : [AppColors.primaryColor, AppColors.primaryDark],
     );
+
+    final String subLabel =
+    checkedOut ? "for today" : (blocked ? "Blocked" : "Tap to verify");
 
     return Center(
       child: SizedBox(
@@ -380,7 +503,11 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
         child: Stack(
           alignment: Alignment.center,
           children: [
-            if (active) _PulsingRing(size: buttonSize, color: checkedIn ? AppColors.errorColor : AppColors.primaryColor),
+            if (active)
+              _PulsingRing(
+                size: buttonSize,
+                color: checkedIn ? AppColors.errorColor : AppColors.primaryColor,
+              ),
             GestureDetector(
               onTap: active ? () => _handleTap(today) : null,
               child: Container(
@@ -389,13 +516,14 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: checkedOut ? AppColors.disabledColor : null,
+                  color: greyed ? AppColors.disabledColor : null,
                   gradient: gradient,
-                  boxShadow: checkedOut
+                  boxShadow: greyed
                       ? []
                       : [
                     BoxShadow(
-                      color: (checkedIn ? AppColors.errorColor : AppColors.primaryColor).withOpacity(.35),
+                      color: (checkedIn ? AppColors.errorColor : AppColors.primaryColor)
+                          .withOpacity(.35),
                       blurRadius: 30,
                       offset: const Offset(0, 12),
                     ),
@@ -430,7 +558,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                     ),
                     const SizedBox(height: 4),
                     AppText(
-                      checkedOut ? "for today" : "Tap to verify",
+                      subLabel,
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: AppColors.whiteColor.withOpacity(.85),
@@ -478,7 +606,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
   // ==================== TODAY'S TIMELINE ====================
   Widget _buildTodayTimeline(BuildContext context, AttendanceModel? today) {
-    final checkInLabel = today?.actualCheckIn != null ? _formatTimeOfDay(today!.actualCheckIn!) : "Pending";
+    final checkInLabel =
+    today?.actualCheckIn != null ? _formatTimeOfDay(today!.actualCheckIn!) : "Pending";
     final checkOutLabel = today?.actualCheckOut != null
         ? _formatTimeOfDay(today!.actualCheckOut!)
         : "Expected ${_formatExpected(today?.expectedLogoutTime)}";

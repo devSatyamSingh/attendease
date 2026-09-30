@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,7 +5,6 @@ import '../core/routes/route_name.dart';
 import '../viewmodel/auth_viewmodel.dart';
 import '../widget/app_colors.dart';
 import '../widget/app_text.dart';
-
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -17,20 +15,12 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
-  static const _splashDuration = Duration(seconds: 2);
-  static const _entranceDuration = Duration(milliseconds: 750);
+  // Minimum branding time. Session check isse pehle khatam ho jaye to bhi
+  // itni der splash dikhta hai (jaldi ho jaye to flash na lage), lekin ab
+  // 2s ki jagah ~1s, aur session check slow ho to uska intezaar bhi karta hai.
+  static const _minSplash = Duration(milliseconds: 1000);
+  static const _entranceDuration = Duration(milliseconds: 600);
   static const _pulseDuration = Duration(milliseconds: 1400);
-
-  Timer? _colorTimer;
-
-  final List<Color> _loaderColors = [
-    AppColors.secondaryColor,
-    AppColors.workingColor,
-    AppColors.primaryColor,
-    Colors.orangeAccent,
-    Colors.purpleAccent,
-  ];
-  int _colorIndex = 0;
 
   // Drives the left -> right progress dot; its value IS the progress.
   late final AnimationController _progressController;
@@ -45,19 +35,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late final Animation<double> _pulseScale;
 
   bool _navigated = false;
+  bool _precached = false;
 
   @override
   void initState() {
     super.initState();
-
-    // Kick the session check off immediately so it's almost certainly
-    // resolved well before the 4s splash duration finishes.
-    ref.read(sessionCheckProvider);
-
-    _colorTimer = Timer.periodic(const Duration(milliseconds: 700), (timer) {
-      if (!mounted) return;
-      setState(() => _colorIndex = (_colorIndex + 1) % _loaderColors.length);
-    });
 
     _entranceController = AnimationController(vsync: this, duration: _entranceDuration);
     _entranceScale = CurvedAnimation(parent: _entranceController, curve: Curves.easeOutBack);
@@ -72,18 +54,28 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    _progressController = AnimationController(vsync: this, duration: _splashDuration)
-      ..addStatusListener((status) {
-        if (status == AnimationStatus.completed) _navigateNext();
-      });
+    _progressController = AnimationController(vsync: this, duration: _minSplash);
 
     _entranceController.forward();
     _progressController.forward();
+
+    _start();
   }
 
-  Future<void> _navigateNext() async {
-    if (!mounted || _navigated) return;
-    _navigated = true;
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Logo pehle se memory me: pop-in ke time image late load nahi hoti.
+    if (!_precached) {
+      _precached = true;
+      precacheImage(const AssetImage("assets/icons/icon.png"), context);
+    }
+  }
+
+  /// Session check aur minimum splash time DONO parallel chalte hain.
+  /// Jab dono khatam, tab navigate.
+  Future<void> _start() async {
+    final minDelay = Future<void>.delayed(_minSplash);
 
     bool isLoggedIn = false;
     try {
@@ -92,7 +84,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
       isLoggedIn = false; // corrupt/unavailable storage -> safest is Login
     }
 
-    if (!mounted) return;
+    await minDelay;
+    if (!mounted || _navigated) return;
+    _navigated = true;
+
     Navigator.of(context).pushReplacementNamed(
       isLoggedIn ? RouteNames.bottombar : RouteNames.login,
     );
@@ -100,7 +95,6 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   void dispose() {
-    _colorTimer?.cancel();
     _entranceController.dispose();
     _pulseController.dispose();
     _progressController.dispose();
@@ -134,18 +128,12 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                       const Spacer(flex: 4),
                       _buildAnimatedBrandBlock(size, iconSize),
                       const Spacer(flex: 1),
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 300),
-                        transitionBuilder: (child, animation) =>
-                            FadeTransition(opacity: animation, child: child),
-                        child: SizedBox(
-                          key: ValueKey(_colorIndex),
-                          height: 34,
-                          width: 34,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2.6,
-                            valueColor: AlwaysStoppedAnimation<Color>(_loaderColors[_colorIndex]),
-                          ),
+                      const SizedBox(
+                        height: 34,
+                        width: 34,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.6,
+                          valueColor: AlwaysStoppedAnimation<Color>(AppColors.secondaryColor),
                         ),
                       ),
                       const SizedBox(height: 18),
@@ -183,9 +171,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     return AnimatedBuilder(
       animation: Listenable.merge([_entranceController, _pulseController]),
       builder: (context, child) {
+        // easeOutBack 1.0 se upar jaata hai -> clamp zaroori hai
         final entranceValue = _entranceScale.value.clamp(0.0, 1.4);
+        final opacity = _entranceOpacity.value.clamp(0.0, 1.0);
         return Opacity(
-          opacity: _entranceOpacity.value,
+          opacity: opacity,
           child: Transform.scale(scale: entranceValue * _pulseScale.value, child: child),
         );
       },
@@ -251,9 +241,10 @@ class _BrandIcon extends StatelessWidget {
   }
 }
 
-/// Left -> right progress dot. `controller.value` (0 -> 1) IS the
-/// position — no independent timer, so it can never fall out of sync
-/// with the splash duration driving it.
+/// Left -> right progress dot.
+/// FIX: pehle `Padding(left: trackWidth * value)` tha, aur pehle frame me width
+/// 0 hone par trackWidth negative ho jaata tha -> "padding.isNonNegative" crash.
+/// Ab `Alignment(-1 -> +1)` use hota hai: koi padding math nahi, crash possible nahi.
 class _AnimatedProgressTrack extends StatelessWidget {
   final AnimationController controller;
   const _AnimatedProgressTrack({required this.controller});
@@ -268,27 +259,23 @@ class _AnimatedProgressTrack extends StatelessWidget {
         color: AppColors.blackColor.withOpacity(.25),
         borderRadius: BorderRadius.circular(20),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final trackWidth = constraints.maxWidth - 8;
-          return AnimatedBuilder(
-            animation: controller,
-            builder: (context, child) {
-              return Align(
-                alignment: Alignment.centerLeft,
-                child: Padding(
-                  padding: EdgeInsets.only(left: trackWidth * controller.value),
-                  child: child,
-                ),
-              );
-            },
-            child: Container(
-              height: 8,
-              width: 8,
-              decoration: const BoxDecoration(color: AppColors.workingColor, shape: BoxShape.circle),
-            ),
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, child) {
+          final v = controller.value.clamp(0.0, 1.0);
+          return Align(
+            alignment: Alignment(v * 2 - 1, 0),
+            child: child,
           );
         },
+        child: Container(
+          height: 8,
+          width: 8,
+          decoration: const BoxDecoration(
+            color: AppColors.workingColor,
+            shape: BoxShape.circle,
+          ),
+        ),
       ),
     );
   }
@@ -308,7 +295,7 @@ class _ProtocolBadge extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.shield_rounded, size: 14, color: AppColors.secondaryColor),
+          const Icon(Icons.shield_rounded, size: 14, color: AppColors.secondaryColor),
           const SizedBox(width: 8),
           AppText(
             "ZERO-TRUST ENTERPRISE PROTOCOL",

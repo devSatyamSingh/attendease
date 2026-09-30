@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failure.dart';
 import '../../core/routes/route_name.dart';
+import '../../localization/lanaguge_provider.dart';
 import '../../model/attendance_model.dart';
 import '../../notification/notification_router.dart';
 import '../../services/permission_service.dart';
@@ -19,6 +21,49 @@ import '../attendance/attendance_status.dart';
 import '../attendance/check_in_out_screen.dart';
 import '../profile/logout_dialog.dart';
 
+// ==================== RTL / LOCALIZATION HELPERS ====================
+
+/// Time, number, code jaisi cheezein Urdu me bhi LTR order me dikhengi.
+String _ltrIso(String s) => '\u2066$s\u2069';
+
+/// "--:--" placeholder (LTR locked)
+final String _dash = _ltrIso('--:--');
+
+bool _isRtl(BuildContext context) => Directionality.of(context) == TextDirection.rtl;
+
+/// Aage badhne wala arrow: LTR me →, RTL me ←
+IconData _forwardArrow(BuildContext context) =>
+    _isRtl(context) ? Icons.arrow_back_rounded : Icons.arrow_forward_rounded;
+
+/// Model/API se aane wale status text ko translate karo.
+/// 'attendance_status.<normalized>' key na mile to original text hi dikhega.
+String _normKey(String s) => s
+    .trim()
+    .toLowerCase()
+    .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+    .replaceAll(RegExp(r'^_+|_+$'), '');
+
+/// Model/API se aane wale status text ko translate karo.
+/// "Late 426m" jaise labels: number alag nikal kar '<naam>_by' key me daalte hain.
+String _loc(String raw) {
+  final text = raw.trim();
+  if (text.isEmpty) return raw;
+
+  // "Late 426m", "Early out 431m" -> attendance_status.late_by / early_out_by
+  final m = RegExp(r'^(.*?)\s*(\d+)\s*m(?:in|ins|inutes)?$', caseSensitive: false)
+      .firstMatch(text);
+  if (m != null && m.group(1)!.trim().isNotEmpty) {
+    final key = 'attendance_status.${_normKey(m.group(1)!)}_by';
+    final translated = key.tr(args: [m.group(2)!]);
+    return translated == key ? raw : translated;
+  }
+
+  final key = 'attendance_status.${_normKey(text)}';
+  final translated = key.tr();
+  return translated == key ? raw : translated;
+}
+
+// ==================== SCREEN ====================
 class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
@@ -65,15 +110,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   void _showLocationPermissionDialog(Failure failure) {
-    final bool permanentlyDenied = failure.message.toLowerCase().contains(
-      "permanently",
-    );
+    final bool permanentlyDenied = failure.message.toLowerCase().contains("permanently");
 
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const AppText(
-          "Location needed",
+        title: AppText(
+          'dashboard.location_needed'.tr(),
           fontSize: 15,
           fontWeight: FontWeight.w600,
         ),
@@ -85,8 +128,8 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const AppText(
-              "Not now",
+            child: AppText(
+              'dashboard.not_now'.tr(),
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -101,7 +144,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               }
             },
             child: AppText(
-              permanentlyDenied ? "Open Settings" : "Allow",
+              permanentlyDenied ? 'dashboard.open_settings'.tr() : 'dashboard.allow'.tr(),
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -113,9 +156,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Future<void> _openCheckIn(BuildContext context) async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CheckInScreen()));
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => const CheckInScreen()));
     if (!mounted) return;
     ref.read(attendanceViewModelProvider.notifier).refresh();
   }
@@ -125,47 +166,51 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       context,
       icon: Icons.logout_rounded,
       iconColor: AppColors.errorColor,
-      title: "Check out now?",
-      message: "You're about to end today's shift. This can't be undone.",
-      cancelText: "Cancel",
-      confirmText: "Check Out",
+      title: 'dashboard.checkout_title'.tr(),
+      message: 'dashboard.checkout_msg'.tr(),
+      cancelText: 'common.cancel'.tr(),
+      confirmText: 'dashboard.checkout_confirm'.tr(),
       confirmColor: AppColors.errorColor,
     );
 
     if (confirmed != true) return;
     if (!mounted) return;
 
-    final success = await ref
-        .read(attendanceViewModelProvider.notifier)
-        .checkOut();
+    final success = await ref.read(attendanceViewModelProvider.notifier).checkOut();
     if (!mounted) return;
 
     if (success) {
-      AppUtils.showSnackbar(context, "Checked out — see you tomorrow!");
+      AppUtils.showSnackbar(context, 'dashboard.checkout_success'.tr());
       ref.invalidate(recentAttendanceProvider);
     } else {
       final error = ref.read(attendanceViewModelProvider).error;
       AppUtils.showErrorSnackbar(
         context,
-        error is Failure
-            ? error.message
-            : "Couldn't check out. Please try again.",
+        error is Failure ? error.message : 'dashboard.checkout_fail'.tr(),
       );
     }
   }
 
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'dashboard.good_morning'.tr();
+    if (h < 17) return 'dashboard.good_afternoon'.tr();
+    return 'dashboard.good_evening'.tr();
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Language badalte hi ye tab turant rebuild ho
+    ref.watch(languageProvider);
+
     final attendanceState = ref.watch(attendanceViewModelProvider);
     final recentActivityAsync = ref.watch(recentAttendanceProvider);
     final profileAsync = ref.watch(profileViewModelProvider);
     final firstName = profileAsync.value?.name.split(" ").first;
 
     final screenWidth = MediaQuery.of(context).size.width;
-    // LeavesScreen jaisa hi responsive padding + max width
     final hPad = (screenWidth * 0.045).clamp(12.0, 24.0);
     final maxContentWidth = screenWidth > 700 ? 520.0 : double.infinity;
-    // Hero ring screen ke hisaab se scale hoga (64 – 78)
     final ringSize = (screenWidth * 0.2).clamp(64.0, 78.0);
 
     return Scaffold(
@@ -185,7 +230,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               },
               child: ListView(
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 16),
+                padding: EdgeInsetsDirectional.fromSTEB(hPad, 10, hPad, 16),
                 children: [
                   _buildHeader(context, firstName),
                   const SizedBox(height: 14),
@@ -196,11 +241,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       children: [
                         _buildHeroCard(context, today, ringSize),
                         const SizedBox(height: 12),
-                        _buildActionArea(
-                          context,
-                          today,
-                          attendanceState.isLoading,
-                        ),
+                        _buildActionArea(context, today, attendanceState.isLoading),
                       ],
                     ),
                   ),
@@ -209,20 +250,19 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   const SizedBox(height: 10),
                   recentActivityAsync.when(
                     loading: () => const _ActivityListSkeleton(),
-                    error: (error, _) =>
-                        _buildActivityErrorCard(context, error),
+                    error: (error, _) => _buildActivityErrorCard(context, error),
                     data: (items) => items.isEmpty
                         ? _buildEmptyActivityCard()
                         : Column(
-                            children: items
-                                .map(
-                                  (item) => Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: _buildActivityCard(context, item),
-                                  ),
-                                )
-                                .toList(),
-                          ),
+                      children: items
+                          .map(
+                            (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _buildActivityCard(context, item),
+                        ),
+                      )
+                          .toList(),
+                    ),
                   ),
                 ],
               ),
@@ -254,10 +294,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              CaptionText("${AppUtils.getGreeting()},"),
+              CaptionText('dashboard.greeting_line'.tr(args: [_greeting()])),
               const SizedBox(height: 1),
               AppText(
-                hasName ? firstName! : "Welcome back",
+                hasName ? firstName! : 'dashboard.welcome_back'.tr(),
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
                 maxLines: 1,
@@ -293,42 +333,35 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // ==================== HERO STATUS CARD ====================
-  Widget _buildHeroCard(
-    BuildContext context,
-    AttendanceModel? today,
-    double ringSize,
-  ) {
+  Widget _buildHeroCard(BuildContext context, AttendanceModel? today, double ringSize) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
     final ds = today?.displayStatus;
     final bool blocked =
-        ds == AttendanceDisplayStatus.onLeave ||
-        ds == AttendanceDisplayStatus.holiday;
+        ds == AttendanceDisplayStatus.onLeave || ds == AttendanceDisplayStatus.holiday;
 
     final String statusLabel = blocked
-        ? today!.statusLabel.toUpperCase()
+        ? _loc(today!.statusLabel).toUpperCase()
         : (checkedOut
-              ? "CHECKED OUT"
-              : (checkedIn ? "WORKING" : "NOT CHECKED IN"));
+        ? 'dashboard.status_checked_out'.tr()
+        : (checkedIn
+        ? 'dashboard.status_working'.tr()
+        : 'dashboard.status_not_checked_in'.tr()));
     final Color pillDotColor = blocked
         ? AppColors.secondaryColor
         : (checkedOut
-              ? AppColors.checkedOutColor
-              : (checkedIn
-                    ? AppColors.workingColor
-                    : AppColors.notCheckedInColor));
+        ? AppColors.checkedOutColor
+        : (checkedIn ? AppColors.workingColor : AppColors.notCheckedInColor));
 
     final int? worked = _workedMinutes(today);
     final int goalMinutes = AppConstants.defaultDailyGoalHours * 60;
-    final double percent = worked == null
-        ? 0.0
-        : (worked / goalMinutes).clamp(0.0, 1.0);
+    final double percent = worked == null ? 0.0 : (worked / goalMinutes).clamp(0.0, 1.0);
 
     final String captionLabel = checkedOut
-        ? "CHECKED OUT AT"
+        ? 'dashboard.caption_checked_out_at'.tr()
         : (checkedIn
-              ? "CHECKED IN AT"
-              : (blocked ? "TODAY" : "READY WHEN YOU ARE"));
+        ? 'dashboard.caption_checked_in_at'.tr()
+        : (blocked ? 'dashboard.caption_today'.tr() : 'dashboard.caption_ready'.tr()));
 
     return Container(
       width: double.infinity,
@@ -347,10 +380,10 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         borderRadius: BorderRadius.circular(22),
         child: Stack(
           children: [
-            // ---- decorative circles (modern glass feel) ----
-            Positioned(
+            // ---- decorative circles (RTL me apne aap side badal lete hain) ----
+            PositionedDirectional(
               top: -34,
-              right: -24,
+              end: -24,
               child: Container(
                 height: 120,
                 width: 120,
@@ -360,9 +393,9 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 ),
               ),
             ),
-            Positioned(
+            PositionedDirectional(
               bottom: -46,
-              left: -30,
+              start: -30,
               child: Container(
                 height: 140,
                 width: 140,
@@ -395,7 +428,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                               const SizedBox(width: 4),
                               Flexible(
                                 child: AppText(
-                                  "Verified device",
+                                  'dashboard.verified_device'.tr(),
                                   fontSize: 11,
                                   color: AppColors.whiteColor.withOpacity(.85),
                                   overflow: TextOverflow.ellipsis,
@@ -425,42 +458,41 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                             ),
                             const SizedBox(height: 4),
                             if (checkedIn || checkedOut)
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  AppText(
-                                    _timeOnly(
-                                      checkedOut
-                                          ? today!.actualCheckOut!
-                                          : today!.actualCheckIn!,
-                                    ),
-                                    fontSize: 28,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.whiteColor,
-                                  ),
-                                  const SizedBox(width: 5),
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 5),
-                                    child: AppText(
-                                      _meridiem(
-                                        checkedOut
-                                            ? today.actualCheckOut!
-                                            : today.actualCheckIn!,
+                            // "10:30 AM" hamesha isi order me: LTR lock, start side pe align
+                              Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    AppText(
+                                      _timeOnly(
+                                        checkedOut ? today!.actualCheckOut! : today!.actualCheckIn!,
                                       ),
-                                      fontSize: 14,
+                                      fontSize: 28,
                                       fontWeight: FontWeight.w600,
-                                      color: AppColors.whiteColor.withOpacity(
-                                        .8,
+                                      color: AppColors.whiteColor,
+                                    ),
+                                    const SizedBox(width: 5),
+                                    Padding(
+                                      padding: const EdgeInsets.only(bottom: 5),
+                                      child: AppText(
+                                        _meridiem(
+                                          checkedOut ? today.actualCheckOut! : today.actualCheckIn!,
+                                        ),
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.whiteColor.withOpacity(.8),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               )
                             else
                               AppText(
                                 blocked
-                                    ? today!.statusSubtitle
-                                    : "Start your day",
+                                    ? _loc(today!.statusSubtitle)
+                                    : 'dashboard.start_your_day'.tr(),
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                                 color: AppColors.whiteColor,
@@ -478,11 +510,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                                 const SizedBox(width: 5),
                                 Flexible(
                                   child: AppText(
-                                    "${_formatExpected(today?.expectedLoginTime)} – ${_formatExpected(today?.expectedLogoutTime)}",
-                                    fontSize: 11,
-                                    color: AppColors.whiteColor.withOpacity(
-                                      .75,
+                                    _ltrIso(
+                                      "${_formatExpected(today?.expectedLoginTime)} – ${_formatExpected(today?.expectedLogoutTime)}",
                                     ),
+                                    fontSize: 11,
+                                    color: AppColors.whiteColor.withOpacity(.75),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -496,9 +528,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         size: ringSize,
                         percent: percent,
                         showPercent: checkedIn || checkedOut,
-                        fallbackIcon: blocked
-                            ? today!.statusIcon
-                            : Icons.fingerprint_rounded,
+                        fallbackIcon: blocked ? today!.statusIcon : Icons.fingerprint_rounded,
                       ),
                     ],
                   ),
@@ -510,27 +540,25 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                       Expanded(
                         child: _buildHeroTile(
                           icon: Icons.login_rounded,
-                          label: "CHECK IN",
-                          value: checkedIn
-                              ? _fullTime(today!.actualCheckIn!)
-                              : "--:--",
+                          label: 'dashboard.tile_check_in'.tr(),
+                          value: checkedIn ? _fullTime(today!.actualCheckIn!) : _dash,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: _buildHeroTile(
                           icon: Icons.logout_rounded,
-                          label: "CHECK OUT",
+                          label: 'dashboard.tile_check_out'.tr(),
                           value: checkedOut
                               ? _fullTime(today!.actualCheckOut!)
-                              : (checkedIn ? "Working" : "--:--"),
+                              : (checkedIn ? 'dashboard.working'.tr() : _dash),
                         ),
                       ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: _buildHeroTile(
                           icon: Icons.timelapse_rounded,
-                          label: "WORKED",
+                          label: 'dashboard.tile_worked'.tr(),
                           value: worked != null ? _durationLabel(worked) : "--",
                         ),
                       ),
@@ -597,9 +625,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               value: percent,
               strokeWidth: 6,
               backgroundColor: Colors.transparent,
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                AppColors.secondaryColor,
-              ),
+              valueColor: const AlwaysStoppedAnimation<Color>(AppColors.secondaryColor),
               strokeCap: StrokeCap.round,
             ),
           ),
@@ -608,13 +634,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
               mainAxisSize: MainAxisSize.min,
               children: [
                 AppText(
-                  "${(percent * 100).round()}%",
+                  _ltrIso("${(percent * 100).round()}%"),
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                   color: AppColors.whiteColor,
                 ),
                 AppText(
-                  "of goal",
+                  'dashboard.of_goal'.tr(),
                   fontSize: 9,
                   color: AppColors.whiteColor.withOpacity(.75),
                 ),
@@ -644,11 +670,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         children: [
           Row(
             children: [
-              Icon(
-                icon,
-                size: 11,
-                color: AppColors.whiteColor.withOpacity(.75),
-              ),
+              Icon(icon, size: 11, color: AppColors.whiteColor.withOpacity(.75)),
               const SizedBox(width: 4),
               Flexible(
                 child: AppText(
@@ -678,18 +700,13 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   // ==================== ACTION AREA (Check In / Check Out / Done) ====================
-  Widget _buildActionArea(
-    BuildContext context,
-    AttendanceModel? today,
-    bool isBusy,
-  ) {
+  Widget _buildActionArea(BuildContext context, AttendanceModel? today, bool isBusy) {
     final bool checkedIn = today?.actualCheckIn != null;
     final bool checkedOut = today?.actualCheckOut != null;
     final ds = today?.displayStatus;
 
     // Leave / Holiday: check-in allowed nahi.
-    if (ds == AttendanceDisplayStatus.onLeave ||
-        ds == AttendanceDisplayStatus.holiday) {
+    if (ds == AttendanceDisplayStatus.onLeave || ds == AttendanceDisplayStatus.holiday) {
       return Container(
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
@@ -703,7 +720,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             const SizedBox(width: 10),
             Expanded(
               child: AppText(
-                "${today.statusSubtitle} — no check-in needed today",
+                'dashboard.no_checkin_needed'.tr(args: [_loc(today.statusSubtitle)]),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,
@@ -732,25 +749,21 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 color: AppColors.successColor,
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.check_rounded,
-                color: AppColors.whiteColor,
-                size: 17,
-              ),
+              child: const Icon(Icons.check_rounded, color: AppColors.whiteColor, size: 17),
             ),
             const SizedBox(width: 12),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   AppText(
-                    "Done for today",
+                    'dashboard.done_today'.tr(),
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.successColor,
                   ),
-                  SizedBox(height: 2),
-                  CaptionText("See you tomorrow!"),
+                  const SizedBox(height: 2),
+                  CaptionText('dashboard.see_you_tomorrow'.tr()),
                 ],
               ),
             ),
@@ -761,43 +774,38 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
     if (checkedIn) {
       return _buildActionButton(
+        context: context,
         onTap: isBusy ? null : () => _handleCheckOut(context),
         color: AppColors.errorColor,
-        title: "CHECK OUT",
-        subtitle: "Tap to end shift",
+        title: 'dashboard.btn_check_out'.tr(),
+        subtitle: 'dashboard.btn_check_out_sub'.tr(),
         leading: isBusy
             ? const SizedBox(
-                height: 16,
-                width: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.whiteColor,
-                ),
-              )
-            : const Icon(
-                Icons.logout_rounded,
-                color: AppColors.whiteColor,
-                size: 18,
-              ),
+          height: 16,
+          width: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: AppColors.whiteColor,
+          ),
+        )
+            : const Icon(Icons.logout_rounded, color: AppColors.whiteColor, size: 18),
       );
     }
 
     // Not checked in yet.
     return _buildActionButton(
+      context: context,
       onTap: isBusy ? null : () => _openCheckIn(context),
       gradient: AppColors.primaryGradient,
       shadowColor: AppColors.primaryColor,
-      title: "CHECK IN",
-      subtitle: "Tap to verify location & mark attendance",
-      leading: const Icon(
-        Icons.fingerprint_rounded,
-        color: AppColors.whiteColor,
-        size: 20,
-      ),
+      title: 'dashboard.btn_check_in'.tr(),
+      subtitle: 'dashboard.btn_check_in_sub'.tr(),
+      leading: const Icon(Icons.fingerprint_rounded, color: AppColors.whiteColor, size: 20),
     );
   }
 
   Widget _buildActionButton({
+    required BuildContext context,
     required VoidCallback? onTap,
     required String title,
     required String subtitle,
@@ -857,10 +865,11 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                 ],
               ),
             ),
-            const Icon(
-              Icons.arrow_forward_rounded,
+            Icon(
+              _forwardArrow(context),
               size: 18,
               color: AppColors.whiteColor,
+              textDirection: TextDirection.ltr, // double-mirroring roko
             ),
           ],
         ),
@@ -870,9 +879,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   // ==================== ERROR CARDS ====================
   Widget _buildStatusErrorCard(BuildContext context, Object error) {
-    final message = error is Failure
-        ? error.message
-        : "Couldn't load today's status.";
+    final message = error is Failure ? error.message : 'dashboard.load_status_error'.tr();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
@@ -883,24 +890,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.wifi_off_rounded,
-            size: 18,
-            color: AppColors.errorColor,
-          ),
+          const Icon(Icons.wifi_off_rounded, size: 18, color: AppColors.errorColor),
           const SizedBox(width: 8),
           Expanded(
-            child: AppText(
-              message,
-              fontSize: 12,
-              color: AppColors.labelTextColor,
-            ),
+            child: AppText(message, fontSize: 12, color: AppColors.labelTextColor),
           ),
           TextButton(
-            onPressed: () =>
-                ref.read(attendanceViewModelProvider.notifier).refresh(),
-            child: const AppText(
-              "Retry",
+            onPressed: () => ref.read(attendanceViewModelProvider.notifier).refresh(),
+            child: AppText(
+              'common.retry'.tr(),
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -912,9 +910,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildActivityErrorCard(BuildContext context, Object error) {
-    final message = error is Failure
-        ? error.message
-        : "Couldn't load recent activity.";
+    final message = error is Failure ? error.message : 'dashboard.load_activity_error'.tr();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
@@ -925,23 +921,15 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.error_outline_rounded,
-            size: 18,
-            color: AppColors.errorColor,
-          ),
+          const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.errorColor),
           const SizedBox(width: 8),
           Expanded(
-            child: AppText(
-              message,
-              fontSize: 12,
-              color: AppColors.labelTextColor,
-            ),
+            child: AppText(message, fontSize: 12, color: AppColors.labelTextColor),
           ),
           TextButton(
             onPressed: () => ref.invalidate(recentAttendanceProvider),
-            child: const AppText(
-              "Retry",
+            child: AppText(
+              'common.retry'.tr(),
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -954,19 +942,17 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
 
   // ==================== RECENT ACTIVITY ====================
   Widget _buildRecentActivityHeader(BuildContext context) {
+    final rtl = _isRtl(context);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        const Row(
+        Row(
           children: [
-            Icon(
-              Icons.history_rounded,
-              size: 17,
-              color: AppColors.headlineTextColor,
-            ),
-            SizedBox(width: 6),
+            const Icon(Icons.history_rounded, size: 17, color: AppColors.headlineTextColor),
+            const SizedBox(width: 6),
             AppText(
-              "Recent Activity",
+              'dashboard.recent_activity'.tr(),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -974,19 +960,20 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
         ),
         InkWell(
           onTap: () => Navigator.pushNamed(context, RouteNames.history),
-          child: const Row(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               AppText(
-                "View All",
+                'dashboard.view_all'.tr(),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,
               ),
               Icon(
-                Icons.chevron_right_rounded,
+                rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
                 size: 16,
                 color: AppColors.primaryColor,
+                textDirection: TextDirection.ltr,
               ),
             ],
           ),
@@ -1021,14 +1008,14 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             ),
           ),
           const SizedBox(height: 10),
-          const AppText(
-            "No activity yet",
+          AppText(
+            'dashboard.no_activity'.tr(),
             fontSize: 13,
             fontWeight: FontWeight.w600,
           ),
           const SizedBox(height: 3),
-          const AppText(
-            "Your check-ins will show up here once you get started.",
+          AppText(
+            'dashboard.no_activity_sub'.tr(),
             fontSize: 11,
             color: AppColors.labelTextColor,
             textAlign: TextAlign.center,
@@ -1039,24 +1026,31 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
   }
 
   Widget _buildActivityCard(BuildContext context, AttendanceModel item) {
-    final bool inProgress =
-        item.displayStatus == AttendanceDisplayStatus.working;
+    final bool inProgress = item.displayStatus == AttendanceDisplayStatus.working;
 
     final Color color = item.statusColor;
     final IconData icon = item.statusIcon;
+    final locale = context.locale.toString();
 
     final dateLabel = item.attendanceDate != null
-        ? DateFormat("EEEE, MMM d").format(item.attendanceDate!.toLocal())
+        ? DateFormat("EEEE, MMM d", locale).format(item.attendanceDate!.toLocal())
         : "—";
 
-    final String timeRange = item.actualCheckIn == null
-        ? item.statusSubtitle
-        : "${_fullTime(item.actualCheckIn!)} → "
-              "${item.actualCheckOut != null ? _fullTime(item.actualCheckOut!) : (inProgress ? 'Working' : '--:--')}";
+    String timeRange;
+    if (item.actualCheckIn == null) {
+      timeRange = _loc(item.statusSubtitle);
+    } else {
+      final from = _fullTime(item.actualCheckIn!);
+      final to = item.actualCheckOut != null
+          ? _fullTime(item.actualCheckOut!)
+          : (inProgress ? 'dashboard.working'.tr() : _dash);
+      // RTL me arrow ulta, taaki padhne ka flow sahi rahe
+      final arrow = _isRtl(context) ? '←' : '→';
+      timeRange = '$from $arrow $to';
+    }
 
-    final workedLabel = item.workedMinutes != null
-        ? _durationLabel(item.workedMinutes!)
-        : null;
+    final workedLabel =
+    item.workedMinutes != null ? _durationLabel(item.workedMinutes!) : null;
 
     return Container(
       padding: const EdgeInsets.all(12),
@@ -1091,7 +1085,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
-                _buildStatusChip(item.statusLabel, color),
+                _buildStatusChip(_loc(item.statusLabel), color),
                 const SizedBox(height: 6),
                 AppText(
                   timeRange,
@@ -1140,12 +1134,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
-          AppText(
-            label,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-            color: color,
-          ),
+          AppText(label, fontSize: 9, fontWeight: FontWeight.w600, color: color),
         ],
       ),
     );
@@ -1161,10 +1150,12 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
     return diff < 0 ? 0 : diff;
   }
 
-  String _durationLabel(int minutes) =>
-      "${minutes ~/ 60}h ${(minutes % 60).toString().padLeft(2, '0')}m";
+  String _durationLabel(int minutes) => 'dashboard.duration'.tr(
+    args: ['${minutes ~/ 60}', (minutes % 60).toString().padLeft(2, '0')],
+  );
 
-  String _fullTime(DateTime dt) => "${_timeOnly(dt)} ${_meridiem(dt)}";
+  /// "10:30 AM" (LTR locked, Urdu me bhi ulta nahi hoga)
+  String _fullTime(DateTime dt) => _ltrIso("${_timeOnly(dt)} ${_meridiem(dt)}");
 
   String _timeOnly(DateTime dt) {
     final local = dt.toLocal();
@@ -1249,7 +1240,7 @@ class _ActivityListSkeleton extends StatelessWidget {
     return Column(
       children: List.generate(
         3,
-        (i) => Container(
+            (i) => Container(
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(

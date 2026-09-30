@@ -8,7 +8,8 @@
     <application
         android:label="AttendEase"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:enableOnBackInvokedCallback="true">
 
         <!-- Firebase Background Notification Icon -->
         <meta-data

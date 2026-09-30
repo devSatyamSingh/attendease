@@ -1,8 +1,11 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/errors/failure.dart';
 import '../../core/routes/route_name.dart';
+import '../../localization/lanaguge_provider.dart';
+import '../../localization/language_screen.dart';
 import '../../model/active_device_model.dart';
 import '../../model/profile_model.dart';
 import '../../utils/app_topbar.dart';
@@ -16,15 +19,49 @@ import '../../widget/app_text.dart';
 import 'holiday_screen.dart';
 import 'logout_dialog.dart';
 
+const String _appVersion = '2.4.0';
+
+// ==================== RTL HELPERS ====================
+
+/// Phone / email / employee code hamesha LTR me dikhne chahiye (Urdu me bhi).
+Widget _ltr(Widget child) => Directionality(textDirection: TextDirection.ltr, child: child);
+
+/// Forward chevron: LTR me ">", RTL me "<" (explicit, har device pe same).
+class _Chevron extends StatelessWidget {
+  const _Chevron();
+
+  @override
+  Widget build(BuildContext context) {
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    return Icon(
+      rtl ? Icons.chevron_left_rounded : Icons.chevron_right_rounded,
+      size: 20,
+      color: AppColors.placeholderColor,
+      textDirection: TextDirection.ltr, // double-mirroring roko
+    );
+  }
+}
+
+/// API se aane wale status ("ACTIVE") ko translate karo.
+/// Key na mile to original value hi dikhao.
+String _statusLabel(String raw) {
+  final key = 'status.${raw.toLowerCase().trim()}';
+  final translated = key.tr();
+  return translated == key ? raw : translated;
+}
+
+// ==================== SCREEN ====================
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Language badalte hi ye screen rebuild hogi
+    ref.watch(languageProvider);
+
     final profileAsync = ref.watch(profileViewModelProvider);
 
     final screenWidth = MediaQuery.of(context).size.width;
-    // LeavesScreen jaisa hi responsive padding + max width
     final hPad = (screenWidth * 0.045).clamp(12.0, 24.0);
     final maxContentWidth = screenWidth > 700 ? 520.0 : double.infinity;
 
@@ -44,7 +81,7 @@ class ProfileScreen extends ConsumerWidget {
               child: profileAsync.when(
                 loading: () => _ProfileSkeleton(hPad: hPad),
                 error: (error, _) => _ProfileErrorState(
-                  message: error is Failure ? error.message : "Couldn't load your profile.",
+                  message: error is Failure ? error.message : 'errors.generic'.tr(),
                   onRetry: () => ref.read(profileViewModelProvider.notifier).refresh(),
                 ),
                 data: (profile) => _ProfileContent(
@@ -81,23 +118,25 @@ class _ProfileContent extends ConsumerWidget {
       children: [
         _buildHeader(context, profile),
         Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 20),
+          padding: EdgeInsetsDirectional.fromSTEB(hPad, 16, hPad, 20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _buildHolidayCard(context),
               const SizedBox(height: 12),
-              _buildEmploymentDetailsCard(profile),
+              _buildEmploymentDetailsCard(context, profile),
               const SizedBox(height: 12),
               _buildDeviceCard(context, ref),
+              const SizedBox(height: 12),
+              _buildLanguageCard(context, ref),
               const SizedBox(height: 12),
               _buildSettingsList(context),
               const SizedBox(height: 16),
               _buildSignOutButton(context, ref),
               const SizedBox(height: 12),
-              const Center(
+              Center(
                 child: CaptionText(
-                  "AttendEase Mobile • Zero-Trust Enterprise Edition",
+                  'profile.footer'.tr(),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -111,12 +150,11 @@ class _ProfileContent extends ConsumerWidget {
   // ==================== HEADER ====================
   Widget _buildHeader(BuildContext context, ProfileModel profile) {
     final initials = _initialsOf(profile.name);
-    // Avatar screen ke hisaab se scale hoga (64 – 80)
     final avatarSize = (screenWidth * 0.19).clamp(64.0, 80.0);
 
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 22),
+      padding: EdgeInsetsDirectional.fromSTEB(hPad, 6, hPad, 22),
       decoration: const BoxDecoration(
         gradient: AppColors.heroGradient,
         borderRadius: BorderRadius.only(
@@ -126,7 +164,7 @@ class _ProfileContent extends ConsumerWidget {
       ),
       child: Column(
         children: [
-          const AppTopBar(title: "Profile", color: AppColors.whiteColor),
+          AppTopBar(title: 'profile.title'.tr(), color: AppColors.whiteColor),
           const SizedBox(height: 10),
           Container(
             height: avatarSize,
@@ -155,13 +193,15 @@ class _ProfileContent extends ConsumerWidget {
             overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 3),
-          AppText(
-            profile.email,
-            fontSize: 12,
-            color: AppColors.whiteColor.withOpacity(.85),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          _ltr(
+            AppText(
+              profile.email,
+              fontSize: 12,
+              color: AppColors.whiteColor.withOpacity(.85),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
           const SizedBox(height: 10),
           Container(
@@ -175,11 +215,13 @@ class _ProfileContent extends ConsumerWidget {
               children: [
                 const Icon(Icons.badge_outlined, size: 13, color: AppColors.whiteColor),
                 const SizedBox(width: 5),
-                AppText(
-                  profile.employeeCode,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.whiteColor,
+                _ltr(
+                  AppText(
+                    profile.employeeCode,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.whiteColor,
+                  ),
                 ),
               ],
             ),
@@ -224,17 +266,17 @@ class _ProfileContent extends ConsumerWidget {
               child: const Icon(Icons.celebration_rounded, size: 17, color: AppColors.primaryColor),
             ),
             const SizedBox(width: 11),
-            const Expanded(
+            Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  AppText("Company Holidays", fontSize: 13, fontWeight: FontWeight.w600),
-                  SizedBox(height: 2),
-                  CaptionText("View this year's holiday calendar"),
+                  AppText('profile.holidays'.tr(), fontSize: 13, fontWeight: FontWeight.w600),
+                  const SizedBox(height: 2),
+                  CaptionText('profile.holidays_sub'.tr()),
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.placeholderColor),
+            const _Chevron(),
           ],
         ),
       ),
@@ -242,7 +284,7 @@ class _ProfileContent extends ConsumerWidget {
   }
 
   // ==================== EMPLOYMENT DETAILS ====================
-  Widget _buildEmploymentDetailsCard(ProfileModel profile) {
+  Widget _buildEmploymentDetailsCard(BuildContext context, ProfileModel profile) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(13),
@@ -257,49 +299,72 @@ class _ProfileContent extends ConsumerWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const AppText("Employment Details", fontSize: 13, fontWeight: FontWeight.w600),
-              _buildDotChip(profile.status, AppColors.requestStatusColor(profile.status)),
+              AppText('profile.employment'.tr(), fontSize: 13, fontWeight: FontWeight.w600),
+              _buildDotChip(
+                _statusLabel(profile.status),
+                AppColors.requestStatusColor(profile.status),
+              ),
             ],
           ),
           const SizedBox(height: 12),
-          _buildDetailRow(icon: Icons.mail_outline_rounded, label: "Work Email", value: profile.email),
+          _buildDetailRow(
+            icon: Icons.mail_outline_rounded,
+            label: 'profile.work_email'.tr(),
+            value: profile.email,
+            forceLtr: true,
+          ),
           const Divider(height: 20),
-          _buildDetailRow(icon: Icons.call_outlined, label: "Contact Phone", value: profile.phone),
+          _buildDetailRow(
+            icon: Icons.call_outlined,
+            label: 'profile.contact_phone'.tr(),
+            value: profile.phone,
+            forceLtr: true,
+          ),
           const Divider(height: 20),
           _buildDetailRow(
             icon: Icons.access_time_rounded,
-            label: "Expected Timing",
-            value: "${_formatTime(profile.expectedLoginTime)} – ${_formatTime(profile.expectedLogoutTime)}",
+            label: 'profile.expected_timing'.tr(),
+            value:
+            "${_formatTime(context, profile.expectedLoginTime)} – ${_formatTime(context, profile.expectedLogoutTime)}",
+            forceLtr: true,   // NAYA
           ),
-          // const Divider(height: 20),
-          // _buildDetailRow(
-          //   icon: Icons.hourglass_bottom_rounded,
-          //   label: "Grace Period",
-          //   value: "${profile.lateGraceMinutes} minutes window",
-          // ),
         ],
       ),
     );
   }
 
-  String _formatTime(String hms) {
+  String _formatTime(BuildContext context, String hms) {
     try {
       final parts = hms.split(":");
       final dt = DateTime(2000, 1, 1, int.parse(parts[0]), int.parse(parts[1]));
-      return DateFormat("hh:mm a").format(dt);
+      final t = DateFormat("hh:mm a", context.locale.toString()).format(dt);
+      return '\u2066$t\u2069'; // LTR isolate: andar ka text hamesha left-to-right
     } catch (_) {
       return hms;
     }
   }
 
-  Widget _buildDetailRow({required IconData icon, required String label, required String value}) {
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    bool forceLtr = false,
+  }) {
+    final valueText = AppText(
+      value,
+      fontSize: 13,
+      fontWeight: FontWeight.w600,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+
     return Row(
       children: [
         Container(
           height: 34,
           width: 34,
           alignment: Alignment.center,
-          margin: const EdgeInsets.only(right: 11),
+          margin: const EdgeInsetsDirectional.only(end: 11),
           decoration: BoxDecoration(
             color: AppColors.primaryLight,
             borderRadius: BorderRadius.circular(10),
@@ -312,7 +377,7 @@ class _ProfileContent extends ConsumerWidget {
             children: [
               CaptionText(label),
               const SizedBox(height: 2),
-              AppText(value, fontSize: 13, fontWeight: FontWeight.w600, maxLines: 1, overflow: TextOverflow.ellipsis),
+              forceLtr ? _ltr(valueText) : valueText,
             ],
           ),
         ),
@@ -338,10 +403,15 @@ class _ProfileContent extends ConsumerWidget {
           children: [
             const Icon(Icons.error_outline_rounded, size: 18, color: AppColors.errorColor),
             const SizedBox(width: 8),
-            const Expanded(child: CaptionText("Couldn't load device info")),
+            Expanded(child: CaptionText('profile.device_load_error'.tr())),
             TextButton(
               onPressed: () => ref.read(deviceViewModelProvider.notifier).refresh(),
-              child: const AppText("Retry", fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
+              child: AppText(
+                'common.retry'.tr(),
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryColor,
+              ),
             ),
           ],
         ),
@@ -359,9 +429,11 @@ class _ProfileContent extends ConsumerWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const AppText("Registered Device", fontSize: 13, fontWeight: FontWeight.w600),
+            AppText('profile.registered_device'.tr(), fontSize: 13, fontWeight: FontWeight.w600),
             _buildDotChip(
-              device == null ? "Not Registered" : (bound ? "Bound & Active" : device.status),
+              device == null
+                  ? 'profile.not_registered'.tr()
+                  : (bound ? 'profile.bound_active'.tr() : _statusLabel(device.status)),
               device == null ? AppColors.labelTextColor : AppColors.requestStatusColor(device.status),
             ),
           ],
@@ -391,7 +463,7 @@ class _ProfileContent extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     AppText(
-                      device?.deviceModel ?? "No device registered yet",
+                      device?.deviceModel ?? 'profile.no_device'.tr(),
                       fontSize: 13,
                       fontWeight: FontWeight.w600,
                       maxLines: 1,
@@ -400,8 +472,10 @@ class _ProfileContent extends ConsumerWidget {
                     const SizedBox(height: 2),
                     CaptionText(
                       device == null
-                          ? "Log in once to bind this handset"
-                          : "${device.platform} • Last active ${_lastActiveLabel(device.lastLoginAt)}",
+                          ? 'profile.login_to_bind'.tr()
+                          : 'profile.last_active'.tr(
+                        args: ['\u2066${device.platform}\u2069', _lastActiveLabel(context, device.lastLoginAt)],
+                      ),
                     ),
                   ],
                 ),
@@ -410,23 +484,87 @@ class _ProfileContent extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 10),
-        const Row(
+        Row(
           children: [
-            Icon(Icons.shield_outlined, size: 13, color: AppColors.labelTextColor),
-            SizedBox(width: 6),
-            Expanded(child: CaptionText("Zero-Trust Device Binding")),
+            const Icon(Icons.shield_outlined, size: 13, color: AppColors.labelTextColor),
+            const SizedBox(width: 6),
+            Expanded(child: CaptionText('profile.device_binding'.tr())),
           ],
         ),
       ],
     );
   }
 
-  String _lastActiveLabel(DateTime? lastLoginAt) {
-    if (lastLoginAt == null) return "recently";
+  String _lastActiveLabel(BuildContext context, DateTime? lastLoginAt) {
+    if (lastLoginAt == null) return 'time.recently'.tr();
     final diff = DateTime.now().difference(lastLoginAt);
-    if (diff.inMinutes < 60) return "${diff.inMinutes}m ago";
-    if (diff.inHours < 24) return "${diff.inHours}h ago";
-    return DateFormat("dd MMM").format(lastLoginAt);
+    if (diff.inMinutes < 60) return 'time.minutes_ago'.tr(args: ['${diff.inMinutes}']);
+    if (diff.inHours < 24) return 'time.hours_ago'.tr(args: ['${diff.inHours}']);
+    return DateFormat("dd MMM", context.locale.toString()).format(lastLoginAt);
+  }
+
+  // ==================== LANGUAGE CARD ====================
+  Widget _buildLanguageCard(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(languageProvider);
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const LanguageScreen()),
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.cardBgColor,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.borderColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 36,
+              width: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(11),
+              ),
+              child: const Icon(Icons.translate_rounded, size: 17, color: AppColors.primaryColor),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AppText('common.language'.tr(), fontSize: 13, fontWeight: FontWeight.w600),
+                  const SizedBox(height: 2),
+                  CaptionText('language.subtitle'.tr(), maxLines: 1, overflow: TextOverflow.ellipsis),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: AppText(
+                current.name,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.primaryColor,
+              ),
+            ),
+            const SizedBox(width: 4),
+            const _Chevron(),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildDotChip(String label, Color color) {
@@ -450,10 +588,10 @@ class _ProfileContent extends ConsumerWidget {
   // ==================== SETTINGS LIST ====================
   Widget _buildSettingsList(BuildContext context) {
     final items = [
-      _SettingsItem(Icons.password_rounded, "Change Security PIN & Password"),
-      _SettingsItem(Icons.notifications_none_rounded, "Notification & Geofence Alerts"),
-      _SettingsItem(Icons.support_agent_rounded, "Help & Support Desk"),
-      _SettingsItem(Icons.info_outline_rounded, "About AttendEase v2.4.0"),
+      _SettingsItem(Icons.password_rounded, 'profile.settings_password'.tr()),
+      _SettingsItem(Icons.notifications_none_rounded, 'profile.settings_alerts'.tr()),
+      _SettingsItem(Icons.support_agent_rounded, 'profile.settings_help'.tr()),
+      _SettingsItem(Icons.info_outline_rounded, 'profile.settings_about'.tr(args: [_appVersion])),
     ];
 
     return Container(
@@ -484,7 +622,7 @@ class _ProfileContent extends ConsumerWidget {
                       Expanded(
                         child: AppText(item.label, fontSize: 13, fontWeight: FontWeight.w600),
                       ),
-                      const Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.placeholderColor),
+                      const _Chevron(),
                     ],
                   ),
                 ),
@@ -500,7 +638,7 @@ class _ProfileContent extends ConsumerWidget {
   // ==================== SIGN OUT ====================
   Widget _buildSignOutButton(BuildContext context, WidgetRef ref) {
     return AppButton(
-      text: "Sign Out from Device",
+      text: 'profile.sign_out'.tr(),
       icon: Icons.logout_rounded,
       color: AppColors.errorColor.withOpacity(.1),
       textColor: AppColors.errorColor,
@@ -515,10 +653,10 @@ class _ProfileContent extends ConsumerWidget {
       context,
       icon: Icons.logout_rounded,
       iconColor: AppColors.errorColor,
-      title: "Sign out?",
-      message: "You'll need to sign in again to mark attendance on this device.",
-      cancelText: "Cancel",
-      confirmText: "Sign Out",
+      title: 'profile.sign_out_title'.tr(),
+      message: 'profile.sign_out_msg'.tr(),
+      cancelText: 'common.cancel'.tr(),
+      confirmText: 'profile.sign_out_confirm'.tr(),
       confirmColor: AppColors.errorColor,
     );
 
@@ -549,7 +687,7 @@ class _ProfileSkeleton extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 22),
+          padding: EdgeInsetsDirectional.fromSTEB(hPad, 6, hPad, 22),
           decoration: const BoxDecoration(
             gradient: AppColors.heroGradient,
             borderRadius: BorderRadius.only(
@@ -559,7 +697,7 @@ class _ProfileSkeleton extends StatelessWidget {
           ),
           child: Column(
             children: [
-              const AppTopBar(title: "Profile", color: AppColors.whiteColor),
+              AppTopBar(title: 'profile.title'.tr(), color: AppColors.whiteColor),
               const SizedBox(height: 10),
               Container(
                 height: 72,
@@ -574,7 +712,7 @@ class _ProfileSkeleton extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.fromLTRB(hPad, 16, hPad, 20),
+          padding: EdgeInsetsDirectional.fromSTEB(hPad, 16, hPad, 20),
           child: Column(
             children: [
               AppSkeletonBox(height: 60, borderRadius: 16),
@@ -661,7 +799,7 @@ class _ProfileErrorState extends StatelessWidget {
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.symmetric(horizontal: 16),
       children: [
-        const AppTopBar(title: "Profile"),
+        AppTopBar(title: 'profile.title'.tr()),
         SizedBox(
           height: 440,
           child: Center(
@@ -681,8 +819,8 @@ class _ProfileErrorState extends StatelessWidget {
                     child: const Icon(Icons.wifi_off_rounded, size: 26, color: AppColors.errorColor),
                   ),
                   const SizedBox(height: 14),
-                  const AppText(
-                    "Couldn't load your profile",
+                  AppText(
+                    'profile.load_error'.tr(),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                     textAlign: TextAlign.center,
@@ -697,7 +835,11 @@ class _ProfileErrorState extends StatelessWidget {
                   const SizedBox(height: 18),
                   SizedBox(
                     width: 150,
-                    child: AppButton(text: "Retry", icon: Icons.refresh_rounded, onTap: onRetry),
+                    child: AppButton(
+                      text: 'common.retry'.tr(),
+                      icon: Icons.refresh_rounded,
+                      onTap: onRetry,
+                    ),
                   ),
                 ],
               ),

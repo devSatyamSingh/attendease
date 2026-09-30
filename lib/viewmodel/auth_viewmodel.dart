@@ -96,8 +96,6 @@ class AuthViewModel extends AsyncNotifier<LoginResponseModel?> {
   }
 
   Future<void> logout() async {
-    // JWT abhi valid hai, isliye FCM token backend se PEHLE hatao,
-    // warna is device pe purane user ke notifications aate rahenge.
     final token = await FcmService().getToken();
     if (token != null) {
       await ref.read(notificationRepositoryProvider).removeFcmToken(token);

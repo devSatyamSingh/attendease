@@ -15,8 +15,7 @@ class PermissionService {
 
     if (permission == LocationPermission.deniedForever) {
       throw const PermissionFailure(
-        message:
-        "Location permission is permanently denied. Please enable it from Settings.",
+        message: "Location permission is permanently denied. Please enable it from Settings.",
         code: "GPS_PERMISSION_REQUIRED",
       );
     }

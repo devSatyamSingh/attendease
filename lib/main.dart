@@ -1,6 +1,11 @@
+import 'dart:async';
+import 'package:attendease/localization/language_model.dart';
+import 'package:attendease/localization/language_service.dart';
 import 'package:attendease/viewmodel/auth_viewmodel.dart';
 import 'package:attendease/viewmodel/notification_viewmodel.dart';
 import 'package:attendease/widget/connectivity_wrapper.dart';
+import 'package:attendease/widget/security_gate.dart';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,18 +14,49 @@ import 'core/constants/navigator_key.dart';
 import 'core/routes/app_routes.dart';
 import 'core/routes/route_name.dart';
 import 'firebase_options.dart';
+import 'localization/lanaguge_provider.dart';
 import 'notification/fcm_service.dart';
 import 'notification/notification_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  late final LanguageModel savedLang;
+  await Future.wait([
+    EasyLocalization.ensureInitialized(),
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    LanguageService().load().then((lang) => savedLang = lang),
+  ]);
 
   FcmService().onNotificationData = NotificationRouter.handle;
-  await FcmService().initialize();
 
-  runApp(const ProviderScope(child: MyApp()));
+  runApp(
+    EasyLocalization(
+      supportedLocales: const [Locale('en'), Locale('hi'), Locale('ur')],
+      path: 'assets/translations',
+      fallbackLocale: const Locale('en'),
+      startLocale: savedLang.locale,
+      saveLocale: false, // language hum khud LanguageService se save karte hain
+      child: ProviderScope(
+        overrides: [
+          languageProvider.overrideWith(() => _PreloadedLanguage(savedLang)),
+        ],
+        child: const MyApp(),
+      ),
+    ),
+  );
+
+  // FCM (permission + token) UI dikhne ke BAAD background me.
+  // Pehle ye runApp se pehle await hota tha aur start slow karta tha.
+  unawaited(FcmService().initialize());
+}
+
+/// App start pe saved language ko provider ki initial state bana deta hai.
+class _PreloadedLanguage extends LanguageNotifier {
+  final LanguageModel initial;
+  _PreloadedLanguage(this.initial);
+
+  @override
+  LanguageModel build() => initial;
 }
 
 class MyApp extends ConsumerStatefulWidget {
@@ -61,21 +97,30 @@ class _MyAppState extends ConsumerState<MyApp> {
 
   @override
   Widget build(BuildContext context) {
+    final isUrdu = context.locale.languageCode == 'ur';
     return MaterialApp(
       title: 'AttendEase',
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey,
+      localizationsDelegates: context.localizationDelegates,
+      supportedLocales: context.supportedLocales,
+      locale: context.locale,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme:
         ColorScheme.fromSeed(seedColor: Colors.deepPurpleAccent.shade400),
+        fontFamily: isUrdu ? 'NotoNastaliqUrdu' : null,
       ),
       initialRoute: RouteNames.splash,
       onGenerateRoute: AppRoutes.onGenerateRoute,
       builder: (context, child) {
         return AnnotatedRegion<SystemUiOverlayStyle>(
           value: _defaultOverlayStyle,
-          child: ConnectivityWrapper(child: child ?? const SizedBox.shrink()),
+          child: ConnectivityWrapper(
+            child: SecurityGate(
+              child: child ?? const SizedBox.shrink(),
+            ),
+          ),
         );
       },
     );

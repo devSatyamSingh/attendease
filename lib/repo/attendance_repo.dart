@@ -4,7 +4,6 @@ import '../api/api_urls.dart';
 import '../core/errors/failure.dart';
 import '../model/attendance_model.dart';
 
-
 class AttendanceRepository {
   final ApiService _apiService;
 
@@ -15,6 +14,8 @@ class AttendanceRepository {
     required double longitude,
     required double accuracy,
     required String deviceId,
+    required bool isMocked,
+    required DateTime locationTimestamp,
   }) async {
     final response = await _apiService.postApi(
       url: ApiUrls.attendanceCheckIn,
@@ -23,6 +24,8 @@ class AttendanceRepository {
         "longitude": longitude,
         "accuracy": accuracy,
         "device_id": deviceId,
+        "is_mocked": isMocked,
+        "location_timestamp": locationTimestamp.toUtc().toIso8601String(),
       },
     );
 
@@ -37,6 +40,8 @@ class AttendanceRepository {
     required double longitude,
     required double accuracy,
     required String deviceId,
+    required bool isMocked,
+    required DateTime locationTimestamp,
   }) async {
     final response = await _apiService.postApi(
       url: ApiUrls.attendanceCheckOut,
@@ -45,6 +50,8 @@ class AttendanceRepository {
         "longitude": longitude,
         "accuracy": accuracy,
         "device_id": deviceId,
+        "is_mocked": isMocked,
+        "location_timestamp": locationTimestamp.toUtc().toIso8601String(),
       },
     );
 

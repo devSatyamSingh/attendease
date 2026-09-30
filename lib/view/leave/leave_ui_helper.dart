@@ -1,6 +1,6 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../../widget/app_colors.dart';
-
 
 class LeaveUiHelper {
   static IconData iconForCode(String code) {
@@ -40,11 +40,11 @@ class LeaveUiHelper {
   static String durationLabel(String leaveDurationType) {
     switch (leaveDurationType.toUpperCase()) {
       case "FULL_DAY":
-        return "Full Day";
+        return 'leaves.duration_full_day'.tr();
       case "FIRST_HALF":
-        return "First Half";
+        return 'leaves.duration_first_half'.tr();
       case "SECOND_HALF":
-        return "Second Half";
+        return 'leaves.duration_second_half'.tr();
       default:
         return leaveDurationType;
     }

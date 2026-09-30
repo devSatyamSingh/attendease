@@ -4,6 +4,7 @@ import '../core/errors/failure.dart';
 import '../model/attendance_model.dart';
 import '../repo/attendance_repo.dart';
 import '../services/device_info_service.dart';
+import '../services/device_security_service.dart';
 import '../services/location_service.dart';
 
 final attendanceRepositoryProvider = Provider<AttendanceRepository>(
@@ -23,20 +24,38 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
     );
   }
 
+  Future<void> _ensureDeviceAllowed() async {
+    final security = await DeviceSecurityService().check();
+    if (security.isRooted) {
+      throw const LocationFailure(
+        message: "Rooted/jailbroken device detected. Attendance is not allowed on this device.",
+        code: "DEVICE_ROOTED",
+      );
+    }
+    if (!security.isRealDevice) {
+      throw const LocationFailure(
+        message: "Emulator detected. Please use a real device.",
+        code: "EMULATOR_DETECTED",
+      );
+    }
+  }
+
   Future<bool> checkIn() async {
     state = const AsyncValue.loading();
 
     final result = await AsyncValue.guard(() async {
+      await _ensureDeviceAllowed();
+
       final position = await LocationService().getCurrentLocation();
       final device = await DeviceInfoService().buildDeviceModel();
 
-      return ref
-          .read(attendanceRepositoryProvider)
-          .checkIn(
+      return ref.read(attendanceRepositoryProvider).checkIn(
         latitude: position.latitude,
         longitude: position.longitude,
         accuracy: position.accuracy,
         deviceId: device.deviceId,
+        isMocked: position.isMocked,
+        locationTimestamp: position.timestamp,
       );
     });
 
@@ -54,16 +73,18 @@ class AttendanceViewModel extends AsyncNotifier<AttendanceModel?> {
     state = const AsyncValue.loading();
 
     final result = await AsyncValue.guard(() async {
+      await _ensureDeviceAllowed();
+
       final position = await LocationService().getCurrentLocation();
       final device = await DeviceInfoService().buildDeviceModel();
 
-      return ref
-          .read(attendanceRepositoryProvider)
-          .checkOut(
+      return ref.read(attendanceRepositoryProvider).checkOut(
         latitude: position.latitude,
         longitude: position.longitude,
         accuracy: position.accuracy,
         deviceId: device.deviceId,
+        isMocked: position.isMocked,
+        locationTimestamp: position.timestamp,
       );
     });
 
@@ -167,9 +188,7 @@ class AttendanceHistoryViewModel extends Notifier<AttendanceHistoryState> {
     state = state.copyWith(isLoadingMore: true, clearFailure: true);
     try {
       final nextPage = state.page + 1;
-      final response = await ref
-          .read(attendanceRepositoryProvider)
-          .getHistory(
+      final response = await ref.read(attendanceRepositoryProvider).getHistory(
         page: nextPage,
         limit: _pageSize,
         from: _lastFrom,

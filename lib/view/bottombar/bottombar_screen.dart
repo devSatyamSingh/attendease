@@ -1,7 +1,9 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 
 import '../../widget/animated_exit_dialog.dart';
 import '../../widget/app_colors.dart';
+import '../../widget/lazy_indexed_stack.dart';
 import '../attendance/history_screen.dart';
 import '../home/dashboard_screen.dart';
 import '../leave/leave_balance_screen.dart';
@@ -41,43 +43,50 @@ class _BottomBarScreenState extends State<BottomBarScreen> {
         await _handleBackPress();
       },
       child: Scaffold(
-        body: IndexedStack(
+        body: LazyIndexedStack(
           index: _currentIndex,
           children: _tabs,
         ),
-        bottomNavigationBar: _buildBottomNav(),
+        bottomNavigationBar: _buildBottomNav(context),
       ),
     );
   }
 
-  Widget _buildBottomNav() {
-    return BottomNavigationBar(
-      currentIndex: _currentIndex,
-      onTap: (index) => setState(() => _currentIndex = index),
-      type: BottomNavigationBarType.fixed,
-      backgroundColor: AppColors.whiteColor,
-      selectedItemColor: AppColors.primaryColor,
-      unselectedItemColor: AppColors.placeholderColor,
-      showUnselectedLabels: true,
-      elevation: 10,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_rounded),
-          label: "Home",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.calendar_today_outlined),
-          label: "History",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.free_cancellation),
-          label: "Leaves",
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline_rounded),
-          label: "Profile",
-        ),
-      ],
+  Widget _buildBottomNav(BuildContext context) {
+    // Language badalte hi labels dobara build hon
+    context.locale;
+
+    // Tab order Urdu me bhi wahi rahe (Home pehle), isliye nav bar ko LTR me rakha hai
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: AppColors.whiteColor,
+        selectedItemColor: AppColors.primaryColor,
+        unselectedItemColor: AppColors.placeholderColor,
+        showUnselectedLabels: true,
+        elevation: 10,
+        items: [
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.home_rounded),
+            label: 'nav.home'.tr(),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.calendar_today_outlined),
+            label: 'nav.history'.tr(),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.free_cancellation),
+            label: 'nav.leaves'.tr(),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person_outline_rounded),
+            label: 'nav.profile'.tr(),
+          ),
+        ],
+      ),
     );
   }
 }

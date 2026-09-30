@@ -50,6 +50,43 @@ class AppText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = Localizations.localeOf(context).languageCode;
+    final isUrdu = lang == 'ur';
+
+    final size = fontSize ?? 15;
+    final weight = fontWeight ?? FontWeight.w500;
+    final textColor = color ?? AppColors.headlineTextColor;
+
+    // Urdu (Nastaliq) ki line height badi hoti hai, warna text cut hota hai.
+    // Letter spacing Urdu me kabhi nahi lagani (akshar jud kar likhe jaate hain).
+    final TextStyle style = isUrdu
+        ? TextStyle(
+      fontFamily: 'NotoNastaliqUrdu',
+      fontSize: size,
+      fontWeight: weight,
+      fontStyle: fontStyle,
+      color: textColor,
+      wordSpacing: wordSpacing,
+      height: height ?? 1.7,
+      decoration: decoration,
+      decorationColor: decorationColor,
+      decorationThickness: decorationThickness,
+      shadows: shadows,
+    )
+        : GoogleFonts.poppins(
+      fontSize: size,
+      fontWeight: weight,
+      fontStyle: fontStyle,
+      color: textColor,
+      letterSpacing: letterSpacing,
+      wordSpacing: wordSpacing,
+      height: height,
+      decoration: decoration,
+      decorationColor: decorationColor,
+      decorationThickness: decorationThickness,
+      shadows: shadows,
+    );
+
     return Container(
       alignment: alignment,
       margin: margin,
@@ -61,19 +98,7 @@ class AppText extends StatelessWidget {
             maxLines: maxLines,
             overflow: overflow,
             softWrap: softWrap,
-            style: GoogleFonts.poppins(
-              fontSize: fontSize ?? 15,
-              fontWeight: fontWeight ?? FontWeight.w500,
-              fontStyle: fontStyle,
-              color: color ?? AppColors.headlineTextColor,
-              letterSpacing: letterSpacing,
-              wordSpacing: wordSpacing,
-              height: height,
-              decoration: decoration,
-              decorationColor: decorationColor,
-              decorationThickness: decorationThickness,
-              shadows: shadows,
-            ),
+            style: style,
           ),
     );
   }
@@ -84,6 +109,8 @@ class HeadlineText extends StatelessWidget {
   final double fontSize;
   final Color? color;
   final TextAlign? textAlign;
+  final int? maxLines;
+  final TextOverflow? overflow;
 
   const HeadlineText(
       this.text, {
@@ -91,6 +118,8 @@ class HeadlineText extends StatelessWidget {
         this.fontSize = 20,
         this.color,
         this.textAlign,
+        this.maxLines,
+        this.overflow,
       });
 
   @override
@@ -101,6 +130,8 @@ class HeadlineText extends StatelessWidget {
       fontWeight: FontWeight.w600,
       color: color ?? AppColors.headlineTextColor,
       textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: overflow,
     );
   }
 }
@@ -109,12 +140,16 @@ class CaptionText extends StatelessWidget {
   final String text;
   final Color? color;
   final TextAlign? textAlign;
+  final int? maxLines;
+  final TextOverflow? overflow;
 
   const CaptionText(
       this.text, {
         super.key,
         this.color,
         this.textAlign,
+        this.maxLines,
+        this.overflow,
       });
 
   @override
@@ -125,6 +160,8 @@ class CaptionText extends StatelessWidget {
       fontWeight: FontWeight.w400,
       color: color ?? AppColors.labelTextColor,
       textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: overflow,
     );
   }
 }

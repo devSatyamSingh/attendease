@@ -2,21 +2,11 @@ import 'package:flutter/material.dart';
 import '../widget/app_colors.dart';
 import '../widget/app_text.dart';
 
-
-/// Reusable top bar for every screen.
-/// Ek hi jagah se fontSize / fontWeight / height / icon size control hoga.
-///
-/// Usage:
-///   const AppTopBar(title: "My Leaves")
-///   const AppTopBar(title: "Profile", color: AppColors.whiteColor)   // gradient/dark bg ke liye
-///   AppTopBar(title: "Attendance History", trailing: AppTopBarAction(icon: Icons.calendar_month_rounded, onTap: () {}))
 class AppTopBar extends StatelessWidget {
   final String title;
   final bool showBack;
   final VoidCallback? onBack;
   final Widget? trailing;
-
-  /// Title + back icon ka color (white bg / gradient dono ke liye)
   final Color color;
 
   const AppTopBar({
@@ -28,15 +18,26 @@ class AppTopBar extends StatelessWidget {
     this.color = AppColors.headlineTextColor,
   });
 
-  // ---- Global design tokens: yahin change karo, poori app me change ho jayega ----
+  // ---- Global design tokens ----
   static const double height = 48;
-  static const double sideSlot = 40; // back/trailing ka fixed width
+  static const double sideSlot = 40;
   static const double titleFontSize = 16;
   static const FontWeight titleFontWeight = FontWeight.w600;
   static const double iconSize = 22;
 
+  /// false (recommended): RTL me arrow → dikhega (standard Urdu/Arabic behavior)
+  /// true: Urdu me bhi arrow ← hi rahega (sirf position right pe hogi)
+  static const bool keepBackArrowLeft = false;
+
   @override
   Widget build(BuildContext context) {
+    final isRtl = Directionality.of(context) == TextDirection.rtl;
+
+    // keepBackArrowLeft = true ho to hamesha ← , warna RTL me →
+    final backIcon = (isRtl && !keepBackArrowLeft)
+        ? Icons.arrow_forward_rounded
+        : Icons.arrow_back_rounded;
+
     return SizedBox(
       height: height,
       child: Row(
@@ -50,7 +51,13 @@ class AppTopBar extends StatelessWidget {
               child: SizedBox(
                 height: sideSlot,
                 width: sideSlot,
-                child: Icon(Icons.arrow_back_rounded, size: iconSize, color: color),
+                child: Icon(
+                  backIcon,
+                  size: iconSize,
+                  color: color,
+                  // Auto-mirror band: direction hum khud upar choose kar chuke hain
+                  textDirection: TextDirection.ltr,
+                ),
               ),
             )
                 : null,
@@ -73,7 +80,7 @@ class AppTopBar extends StatelessWidget {
   }
 }
 
-/// Top bar ke right side ka icon button (same size/style har jagah).
+/// Top bar ke trailing side ka icon button.
 class AppTopBarAction extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
