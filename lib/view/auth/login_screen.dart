@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -13,6 +14,9 @@ import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 import '../../widget/app_textfield.dart';
 
+/// Version / number ka order Urdu me ulta na ho.
+String _ltrIso(String s) => '\u2066$s\u2069';
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -27,7 +31,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _obscurePassword = true;
   bool _buildingDeviceInfo = false;
-
 
   @override
   void dispose() {
@@ -84,7 +87,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         error: (error, _) {
           final message = error is Failure
               ? error.message
-              : "Something went wrong. Please try again.";
+              : 'errors.generic'.tr();
           AppUtils.showErrorSnackbar(context, message);
         },
       );
@@ -137,115 +140,134 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                   Row(
                                     mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
-                                    children: const [
-                                      HeadlineText("Welcome Back", fontSize: 18),
-                                      _GeofenceBadge(),
+                                    children: [
+                                      Flexible(
+                                        child: HeadlineText(
+                                          'login.welcome_back'.tr(),
+                                          fontSize: 18,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const _GeofenceBadge(),
                                     ],
                                   ),
                                   const SizedBox(height: 4),
-                                  const CaptionText(
-                                    "Sign in to mark your daily attendance",
-                                  ),
+                                  CaptionText('login.subtitle'.tr()),
                                   const SizedBox(height: 16),
-                                  const AppText(
-                                    "Employee ID or Work Email",
+                                  AppText(
+                                    'login.work_email'.tr(),
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
                                   const SizedBox(height: 6),
-                                  AppTextField(
-                                    controller: _employeeIdController,
-                                    hintText: "EMP-48209",
-                                    keyboardType: TextInputType.text,
-                                    enabled: !isLoading,
-                                    prefixIcon: const Icon(
-                                      Icons.badge_outlined,
-                                      size: 18,
-                                      color: AppColors.labelTextColor,
-                                    ),
-                                    suffixIcon: ValueListenableBuilder(
-                                      valueListenable: _employeeIdController,
-                                      builder: (context, value, _) {
-                                        if (value.text.trim().isEmpty) {
-                                          return const SizedBox.shrink();
-                                        }
-                                        return const Icon(
-                                          Icons.check_circle_rounded,
-                                          color: AppColors.successColor,
-                                          size: 17,
-                                        );
-                                      },
-                                    ),
-                                    validator: Validators.employeeIdOrEmail,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  const AppText(
-                                    "Master Password",
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  AppTextField(
-                                    controller: _passwordController,
-                                    obscureText: _obscurePassword,
-                                    enabled: !isLoading,
-                                    prefixIcon: const Icon(
-                                      Icons.lock_outline_rounded,
-                                      size: 18,
-                                      color: AppColors.labelTextColor,
-                                    ),
-                                    suffixIcon: IconButton(
-                                      padding: EdgeInsets.zero,
-                                      icon: Icon(
-                                        _obscurePassword
-                                            ? Icons.visibility_off_outlined
-                                            : Icons.visibility_outlined,
+
+                                  // Email / employee ID hamesha LTR me type hota hai (Urdu me bhi)
+                                  Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: AppTextField(
+                                      controller: _employeeIdController,
+                                      hintText: "EMP-48209",
+                                      keyboardType: TextInputType.text,
+                                      enabled: !isLoading,
+                                      prefixIcon: const Icon(
+                                        Icons.badge_outlined,
                                         size: 18,
                                         color: AppColors.labelTextColor,
                                       ),
-                                      onPressed: () => setState(
-                                            () =>
-                                        _obscurePassword = !_obscurePassword,
+                                      suffixIcon: ValueListenableBuilder(
+                                        valueListenable: _employeeIdController,
+                                        builder: (context, value, _) {
+                                          if (value.text.trim().isEmpty) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          return const Icon(
+                                            Icons.check_circle_rounded,
+                                            color: AppColors.successColor,
+                                            size: 17,
+                                          );
+                                        },
                                       ),
+                                      validator: Validators.employeeIdOrEmail,
                                     ),
-                                    validator: Validators.password,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  AppText(
+                                    'login.master_password'.tr(),
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                  const SizedBox(height: 6),
+
+                                  // Password bhi LTR me
+                                  Directionality(
+                                    textDirection: TextDirection.ltr,
+                                    child: AppTextField(
+                                      controller: _passwordController,
+                                      obscureText: _obscurePassword,
+                                      enabled: !isLoading,
+                                      prefixIcon: const Icon(
+                                        Icons.lock_outline_rounded,
+                                        size: 18,
+                                        color: AppColors.labelTextColor,
+                                      ),
+                                      suffixIcon: IconButton(
+                                        padding: EdgeInsets.zero,
+                                        icon: Icon(
+                                          _obscurePassword
+                                              ? Icons.visibility_off_outlined
+                                              : Icons.visibility_outlined,
+                                          size: 18,
+                                          color: AppColors.labelTextColor,
+                                        ),
+                                        onPressed: () => setState(
+                                              () =>
+                                          _obscurePassword = !_obscurePassword,
+                                        ),
+                                      ),
+                                      validator: Validators.password,
+                                    ),
                                   ),
                                   const SizedBox(height: 16),
                                   AppButton(
-                                    text: "Clock In / Login",
+                                    text: 'login.btn_login'.tr(),
                                     icon: Icons.fingerprint_rounded,
                                     height: 50,
                                     loading: isLoading,
                                     onTap: isLoading ? null : _handleLogin,
                                   ),
                                   const SizedBox(height: 14),
-                                  const _InfoBanner(
-                                    text:
-                                    "This handset will be bound to your biometrics profile",
-                                  ),
+                                  _InfoBanner(text: 'login.bind_info'.tr()),
                                   const SizedBox(height: 14),
                                   Center(
                                     child: Column(
                                       children: [
                                         Row(
                                           mainAxisSize: MainAxisSize.min,
-                                          children: const [
-                                            Icon(
+                                          children: [
+                                            const Icon(
                                               Icons.support_agent_rounded,
                                               size: 13,
                                               color: AppColors.labelTextColor,
                                             ),
-                                            SizedBox(width: 5),
-                                            CaptionText(
-                                              "Contact IT Helpdesk if unable to sign in",
-                                              color: AppColors.labelTextColor,
+                                            const SizedBox(width: 5),
+                                            Flexible(
+                                              child: CaptionText(
+                                                'login.contact_it'.tr(),
+                                                color: AppColors.labelTextColor,
+                                                textAlign: TextAlign.center,
+                                              ),
                                             ),
                                           ],
                                         ),
                                         const SizedBox(height: 4),
-                                        const CaptionText(
-                                          "256-bit Hardware-Backed Security • v2.4.0",
+                                        CaptionText(
+                                          'login.security_footer'.tr(
+                                            args: [_ltrIso('v2.4.0')],
+                                          ),
                                           color: AppColors.placeholderColor,
+                                          textAlign: TextAlign.center,
                                         ),
                                       ],
                                     ),
@@ -308,9 +330,10 @@ class _Header extends StatelessWidget {
                   size: iconSize * 0.48,
                 ),
               ),
-              Positioned(
+              // RTL me green dot bhi side badal leta hai
+              PositionedDirectional(
                 top: -2,
-                right: -2,
+                end: -2,
                 child: Container(
                   height: 12,
                   width: 12,
@@ -324,6 +347,7 @@ class _Header extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
+          // Brand name translate nahi hota
           const AppText(
             "AttendEase",
             fontSize: 20,
@@ -332,11 +356,12 @@ class _Header extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           AppText(
-            "SMART EMPLOYEE ATTENDANCE",
+            'login.tagline'.tr(),
             fontSize: 9,
             fontWeight: FontWeight.w600,
             letterSpacing: 1.2,
             color: AppColors.whiteColor.withOpacity(.75),
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -367,8 +392,8 @@ class _GeofenceBadge extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 5),
-          const AppText(
-            "Geofence Active",
+          AppText(
+            'login.geofence_active'.tr(),
             fontSize: 10,
             fontWeight: FontWeight.w600,
             color: AppColors.successColor,

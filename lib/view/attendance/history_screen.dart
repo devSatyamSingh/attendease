@@ -1,8 +1,10 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:table_calendar/table_calendar.dart';
 import '../../core/errors/failure.dart';
+import '../../localization/lanaguge_provider.dart';
 import '../../model/attendance_model.dart';
 import '../../utils/app_topbar.dart';
 import '../../viewmodel/attendance_viewmodel.dart';
@@ -11,16 +13,22 @@ import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 import 'attendance_status.dart';
 
+// ==================== HELPERS ====================
+/// Time / number ka order Urdu me ulta na ho.
+String _ltrIso(String s) => '\u2066$s\u2069';
+
+/// TextStyle wale raw widgets (calendar) ke liye font.
+String _fontFor(BuildContext c) =>
+    Localizations.localeOf(c).languageCode == 'ur' ? 'NotoNastaliqUrdu' : 'Poppins';
+
 class AttendanceHistoryScreen extends ConsumerStatefulWidget {
   const AttendanceHistoryScreen({super.key});
 
   @override
-  ConsumerState<AttendanceHistoryScreen> createState() =>
-      _AttendanceHistoryScreenState();
+  ConsumerState<AttendanceHistoryScreen> createState() => _AttendanceHistoryScreenState();
 }
 
-class _AttendanceHistoryScreenState
-    extends ConsumerState<AttendanceHistoryScreen> {
+class _AttendanceHistoryScreenState extends ConsumerState<AttendanceHistoryScreen> {
   late DateTime _selectedMonth;
   late DateTime _focusedCalendarDay;
   DateTime? _selectedCalendarDay;
@@ -43,7 +51,7 @@ class _AttendanceHistoryScreenState
       }
     });
 
-    // Load history scoped to the current month right away.
+    // Current month ki history turant load karo.
     Future.microtask(() => _loadMonth(_selectedMonth));
   }
 
@@ -57,9 +65,7 @@ class _AttendanceHistoryScreenState
     _filteredDay = null;
     final from = DateTime(month.year, month.month, 1);
     final to = DateTime(month.year, month.month + 1, 0);
-    ref
-        .read(attendanceHistoryViewModelProvider.notifier)
-        .loadFirstPage(from: from, to: to);
+    ref.read(attendanceHistoryViewModelProvider.notifier).loadFirstPage(from: from, to: to);
   }
 
   void _loadDay(DateTime day) {
@@ -77,20 +83,19 @@ class _AttendanceHistoryScreenState
 
   void _shiftMonth(int delta) {
     setState(() {
-      _selectedMonth = DateTime(
-        _selectedMonth.year,
-        _selectedMonth.month + delta,
-      );
+      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + delta);
     });
     _loadMonth(_selectedMonth);
   }
 
   @override
   Widget build(BuildContext context) {
+    // Language badalte hi ye tab turant rebuild ho
+    ref.watch(languageProvider);
+
     final historyState = ref.watch(attendanceHistoryViewModelProvider);
 
     final screenWidth = MediaQuery.of(context).size.width;
-    // LeavesScreen jaisa hi responsive padding + max width
     final hPad = (screenWidth * 0.045).clamp(12.0, 24.0);
     final maxContentWidth = screenWidth > 700 ? 520.0 : double.infinity;
 
@@ -102,16 +107,15 @@ class _AttendanceHistoryScreenState
             constraints: BoxConstraints(maxWidth: maxContentWidth),
             child: RefreshIndicator(
               color: AppColors.primaryColor,
-              onRefresh: () => ref
-                  .read(attendanceHistoryViewModelProvider.notifier)
-                  .refresh(),
+              onRefresh: () =>
+                  ref.read(attendanceHistoryViewModelProvider.notifier).refresh(),
               child: ListView(
                 controller: _scrollController,
                 physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 16),
+                padding: EdgeInsetsDirectional.fromSTEB(hPad, 6, hPad, 16),
                 children: [
                   AppTopBar(
-                    title: "Attendance History",
+                    title: 'attendance_history.title'.tr(),
                     trailing: AppTopBarAction(
                       icon: Icons.calendar_month_rounded,
                       onTap: () => _openCalendarPicker(context),
@@ -145,9 +149,7 @@ class _AttendanceHistoryScreenState
                       if (historyState.isLoadingMore)
                         const Padding(
                           padding: EdgeInsets.symmetric(vertical: 14),
-                          child: Center(
-                            child: CircularProgressIndicator(strokeWidth: 2.2),
-                          ),
+                          child: Center(child: CircularProgressIndicator(strokeWidth: 2.2)),
                         ),
                     ],
                 ],
@@ -176,105 +178,97 @@ class _AttendanceHistoryScreenState
       _selectedMonth,
     ];
 
-    return Row(
-      children: [
-        InkWell(
-          onTap: () => _shiftMonth(-1),
-          customBorder: const CircleBorder(),
-          child: const Padding(
-            padding: EdgeInsets.all(4),
-            child: Icon(
-              Icons.chevron_left_rounded,
-              size: 20,
-              color: AppColors.labelTextColor,
+    // Timeline hamesha purana -> naya (left to right), Urdu me bhi.
+    // Isliye poora scroller LTR me lock hai, aur prev/next arrows sahi side pe rehte hain.
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Row(
+        children: [
+          InkWell(
+            onTap: () => _shiftMonth(-1),
+            customBorder: const CircleBorder(),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.chevron_left_rounded, size: 20, color: AppColors.labelTextColor),
             ),
           ),
-        ),
-        Expanded(
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: months.map((m) {
-              final bool active =
-                  m.year == _selectedMonth.year &&
-                      m.month == _selectedMonth.month;
-              return InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () {
-                  setState(() => _selectedMonth = m);
-                  _loadMonth(m);
-                },
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 7,
-                  ),
-                  decoration: BoxDecoration(
-                    color: active ? AppColors.primaryColor : Colors.transparent,
+          Expanded(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: months.map((m) {
+                final bool active =
+                    m.year == _selectedMonth.year && m.month == _selectedMonth.month;
+                return Flexible(
+                  child: InkWell(
                     borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (active) ...[
-                        Container(
-                          height: 5,
-                          width: 5,
-                          decoration: const BoxDecoration(
-                            color: AppColors.whiteColor,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                      ],
-                      AppText(
-                        _monthShortLabel(m),
-                        fontSize: 11,
-                        fontWeight: active ? FontWeight.w600 : FontWeight.w500,
-                        color: active
-                            ? AppColors.whiteColor
-                            : AppColors.labelTextColor,
+                    onTap: () {
+                      setState(() => _selectedMonth = m);
+                      _loadMonth(m);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: active ? AppColors.primaryColor : Colors.transparent,
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (active) ...[
+                            Container(
+                              height: 5,
+                              width: 5,
+                              decoration: const BoxDecoration(
+                                color: AppColors.whiteColor,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 5),
+                          ],
+                          Flexible(
+                            child: AppText(
+                              _monthShortLabel(m),
+                              fontSize: 11,
+                              fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+                              color: active ? AppColors.whiteColor : AppColors.labelTextColor,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-        ),
-        InkWell(
-          onTap: () => _shiftMonth(1),
-          customBorder: const CircleBorder(),
-          child: const Padding(
-            padding: EdgeInsets.all(4),
-            child: Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: AppColors.labelTextColor,
+                );
+              }).toList(),
             ),
           ),
-        ),
-      ],
+          InkWell(
+            onTap: () => _shiftMonth(1),
+            customBorder: const CircleBorder(),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.chevron_right_rounded, size: 20, color: AppColors.labelTextColor),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ==================== STATS ROW ====================
   Widget _buildStatsRow(List<AttendanceModel> items) {
     final presentCount = items.where((r) => r.actualCheckIn != null).length;
-    final lateCount = items
-        .where((r) => r.displayStatus == AttendanceDisplayStatus.late)
-        .length;
+    final lateCount =
+        items.where((r) => r.displayStatus == AttendanceDisplayStatus.late).length;
     final missingCount = items
-        .where(
-          (r) => r.displayStatus == AttendanceDisplayStatus.missingCheckout,
-    )
+        .where((r) => r.displayStatus == AttendanceDisplayStatus.missingCheckout)
         .length;
     final leaveCount = items
-        .where(
-          (r) =>
-      r.displayStatus == AttendanceDisplayStatus.onLeave ||
-          r.displayStatus == AttendanceDisplayStatus.halfDayLeave,
-    )
+        .where((r) =>
+    r.displayStatus == AttendanceDisplayStatus.onLeave ||
+        r.displayStatus == AttendanceDisplayStatus.halfDayLeave)
         .length;
 
     return Row(
@@ -283,7 +277,7 @@ class _AttendanceHistoryScreenState
           child: _buildStatPill(
             color: AppColors.successColor,
             value: "$presentCount",
-            label: "Present",
+            label: 'attendance_history.present'.tr(),
           ),
         ),
         const SizedBox(width: 8),
@@ -291,7 +285,7 @@ class _AttendanceHistoryScreenState
           child: _buildStatPill(
             color: AppColors.warningColor,
             value: "$lateCount",
-            label: "Late",
+            label: 'attendance_history.late'.tr(),
           ),
         ),
         const SizedBox(width: 8),
@@ -299,7 +293,7 @@ class _AttendanceHistoryScreenState
           child: _buildStatPill(
             color: AppColors.errorColor,
             value: "$missingCount",
-            label: "Missing",
+            label: 'attendance_history.missing'.tr(),
           ),
         ),
         const SizedBox(width: 8),
@@ -307,7 +301,7 @@ class _AttendanceHistoryScreenState
           child: _buildStatPill(
             color: AppColors.primaryColor,
             value: "$leaveCount",
-            label: "Leave",
+            label: 'attendance_history.leave'.tr(),
           ),
         ),
       ],
@@ -341,7 +335,12 @@ class _AttendanceHistoryScreenState
             ],
           ),
           const SizedBox(height: 3),
-          CaptionText(label),
+          CaptionText(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
         ],
       ),
     );
@@ -350,18 +349,16 @@ class _AttendanceHistoryScreenState
   // ==================== ON-TIME BANNER ====================
   Widget _buildOnTimeBanner(List<AttendanceModel> items) {
     final completed = items
-        .where(
-          (r) =>
-      r.displayStatus == AttendanceDisplayStatus.onTime ||
-          r.displayStatus == AttendanceDisplayStatus.late,
-    )
+        .where((r) =>
+    r.displayStatus == AttendanceDisplayStatus.onTime ||
+        r.displayStatus == AttendanceDisplayStatus.late)
         .toList();
-    final onTimeCount = completed
-        .where((r) => (r.lateMinutes ?? 0) == 0)
-        .length;
-    final rate = completed.isEmpty
-        ? 0.0
-        : (onTimeCount / completed.length) * 100;
+    final onTimeCount = completed.where((r) => (r.lateMinutes ?? 0) == 0).length;
+    final rate = completed.isEmpty ? 0.0 : (onTimeCount / completed.length) * 100;
+
+    final completedLabel = completed.length == 1
+        ? 'attendance_history.completed_one'.tr(args: ['${completed.length}'])
+        : 'attendance_history.completed_many'.tr(args: ['${completed.length}']);
 
     return Container(
       width: double.infinity,
@@ -380,11 +377,7 @@ class _AttendanceHistoryScreenState
               color: AppColors.primaryColor,
               borderRadius: BorderRadius.circular(11),
             ),
-            child: const Icon(
-              Icons.insights_rounded,
-              color: AppColors.whiteColor,
-              size: 18,
-            ),
+            child: const Icon(Icons.insights_rounded, color: AppColors.whiteColor, size: 18),
           ),
           const SizedBox(width: 11),
           Expanded(
@@ -392,15 +385,15 @@ class _AttendanceHistoryScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AppText(
-                  "${rate.toStringAsFixed(1)}% On-Time Rate",
+                  'attendance_history.on_time_rate'.tr(args: [rate.toStringAsFixed(1)]),
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
                 const SizedBox(height: 2),
                 CaptionText(
                   completed.isEmpty
-                      ? "No completed days yet this month"
-                      : "${completed.length} completed day${completed.length == 1 ? '' : 's'}",
+                      ? 'attendance_history.no_completed'.tr()
+                      : completedLabel,
                 ),
               ],
             ),
@@ -412,58 +405,64 @@ class _AttendanceHistoryScreenState
 
   // ==================== RECORDS HEADER ====================
   Widget _buildRecordsHeader(int count) {
+    final locale = context.locale.toString();
+    final entryLabel = count == 1
+        ? 'attendance_history.entry_one'.tr(args: ['$count'])
+        : 'attendance_history.entry_many'.tr(args: ['$count']);
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Row(
-          children: [
-            const AppText(
-              "DAILY RECORDS",
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              letterSpacing: .8,
-              color: AppColors.labelTextColor,
-            ),
-            if (_filteredDay != null) ...[
-              const SizedBox(width: 8),
-              InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: _clearDayFilter,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryColor.withOpacity(.12),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.close_rounded,
-                        size: 12,
-                        color: AppColors.primaryColor,
-                      ),
-                      SizedBox(width: 3),
-                      AppText(
-                        "Clear",
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryColor,
-                      ),
-                    ],
-                  ),
+        Flexible(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: AppText(
+                  'attendance_history.daily_records'.tr(),
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: .8,
+                  color: AppColors.labelTextColor,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
+              if (_filteredDay != null) ...[
+                const SizedBox(width: 8),
+                InkWell(
+                  borderRadius: BorderRadius.circular(20),
+                  onTap: _clearDayFilter,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primaryColor.withOpacity(.12),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.close_rounded, size: 12, color: AppColors.primaryColor),
+                        const SizedBox(width: 3),
+                        AppText(
+                          'attendance_history.clear'.tr(),
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
+        const SizedBox(width: 8),
         CaptionText(
           _filteredDay != null
-              ? "${DateFormat("d MMM").format(_filteredDay!)} • $count ${count == 1 ? 'entry' : 'entries'}"
-              : "Showing $count entries",
+              ? "${DateFormat("d MMM", locale).format(_filteredDay!)} • $entryLabel"
+              : 'attendance_history.showing'.tr(args: ['$count']),
         ),
       ],
     );
@@ -477,18 +476,15 @@ class _AttendanceHistoryScreenState
       alignment: Alignment.center,
       child: Column(
         children: [
-          const Icon(
-            Icons.event_busy_rounded,
-            size: 32,
-            color: AppColors.placeholderColor,
-          ),
+          const Icon(Icons.event_busy_rounded, size: 32, color: AppColors.placeholderColor),
           const SizedBox(height: 8),
           AppText(
             _filteredDay != null
-                ? "No attendance record for this day"
-                : "No attendance records for this month",
+                ? 'attendance_history.empty_day'.tr()
+                : 'attendance_history.empty_month'.tr(),
             fontSize: 12,
             color: AppColors.labelTextColor,
+            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -506,11 +502,7 @@ class _AttendanceHistoryScreenState
       ),
       child: Column(
         children: [
-          const Icon(
-            Icons.wifi_off_rounded,
-            size: 28,
-            color: AppColors.errorColor,
-          ),
+          const Icon(Icons.wifi_off_rounded, size: 28, color: AppColors.errorColor),
           const SizedBox(height: 8),
           AppText(
             failure.message,
@@ -522,7 +514,7 @@ class _AttendanceHistoryScreenState
           SizedBox(
             width: 130,
             child: AppButton(
-              text: "Retry",
+              text: 'common.retry'.tr(),
               icon: Icons.refresh_rounded,
               height: 40,
               onTap: () => _loadMonth(_selectedMonth),
@@ -537,20 +529,19 @@ class _AttendanceHistoryScreenState
   Widget _buildRecordCard(BuildContext context, AttendanceModel record) {
     final status = record.displayStatus;
     final accent = record.statusColor;
-    final date =
-    (record.attendanceDate ?? record.createdAt ?? DateTime.now())
-        .toLocal();
+    final date = (record.attendanceDate ?? record.createdAt ?? DateTime.now()).toLocal();
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Color bar: LTR me left, RTL me right
           Container(
             width: 4,
             decoration: BoxDecoration(
               color: accent,
-              borderRadius: const BorderRadius.horizontal(
-                left: Radius.circular(4),
+              borderRadius: const BorderRadiusDirectional.horizontal(
+                start: Radius.circular(4),
               ),
             ),
           ),
@@ -559,14 +550,14 @@ class _AttendanceHistoryScreenState
               padding: const EdgeInsets.all(12),
               decoration: const BoxDecoration(
                 color: AppColors.cardBgColor,
-                borderRadius: BorderRadius.horizontal(
-                  right: Radius.circular(16),
+                borderRadius: BorderRadiusDirectional.horizontal(
+                  end: Radius.circular(16),
                 ),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  _buildDateBox(date),
+                  _buildDateBox(context, date),
                   const SizedBox(width: 11),
                   Expanded(child: _buildInOutColumn(record, status)),
                   const SizedBox(width: 8),
@@ -580,8 +571,9 @@ class _AttendanceHistoryScreenState
     );
   }
 
-  Widget _buildDateBox(DateTime date) {
-    const weekdayShort = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
+  Widget _buildDateBox(BuildContext context, DateTime date) {
+    // Hardcoded MON/TUE list hata di: ab selected language me aayega
+    final weekday = DateFormat("EEE", context.locale.toString()).format(date).toUpperCase();
     return Container(
       width: 44,
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -594,20 +586,19 @@ class _AttendanceHistoryScreenState
           AppText("${date.day}", fontSize: 15, fontWeight: FontWeight.w700),
           const SizedBox(height: 1),
           AppText(
-            weekdayShort[date.weekday - 1],
+            weekday,
             fontSize: 9,
             fontWeight: FontWeight.w600,
             color: AppColors.labelTextColor,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildInOutColumn(
-      AttendanceModel record,
-      AttendanceDisplayStatus status,
-      ) {
+  Widget _buildInOutColumn(AttendanceModel record, AttendanceDisplayStatus status) {
     // Check-in hi nahi hua (leave / holiday / absent / not checked in)
     if (record.actualCheckIn == null) {
       return Row(
@@ -634,7 +625,7 @@ class _AttendanceHistoryScreenState
     final inLabel = _formatTime(record.actualCheckIn!);
     final outLabel = record.actualCheckOut != null
         ? _formatTime(record.actualCheckOut!)
-        : (isWorking ? "Working..." : "--:--");
+        : (isWorking ? 'attendance_history.working_dots'.tr() : _ltrIso('--:--'));
 
     final Color outColor = isMissing
         ? AppColors.errorColor
@@ -654,12 +645,10 @@ class _AttendanceHistoryScreenState
             const SizedBox(width: 5),
             Flexible(
               child: AppText(
-                "In: $inLabel",
+                'attendance_history.in_time'.tr(args: [inLabel]),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: isLate
-                    ? AppColors.warningColor
-                    : AppColors.headlineTextColor,
+                color: isLate ? AppColors.warningColor : AppColors.headlineTextColor,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -675,14 +664,12 @@ class _AttendanceHistoryScreenState
               size: 13,
               color: isMissing
                   ? AppColors.errorColor
-                  : (isWorking
-                  ? AppColors.primaryColor
-                  : AppColors.errorColor),
+                  : (isWorking ? AppColors.primaryColor : AppColors.errorColor),
             ),
             const SizedBox(width: 5),
             Flexible(
               child: AppText(
-                "Out: $outLabel",
+                'attendance_history.out_time'.tr(args: [outLabel]),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: outColor,
@@ -704,8 +691,7 @@ class _AttendanceHistoryScreenState
       crossAxisAlignment: CrossAxisAlignment.end,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (record.workedMinutes != null ||
-            status == AttendanceDisplayStatus.working) ...[
+        if (record.workedMinutes != null || status == AttendanceDisplayStatus.working) ...[
           AppText(
             _workedLabel(record, status),
             fontSize: 12,
@@ -723,14 +709,13 @@ class _AttendanceHistoryScreenState
     if (minutes == null &&
         status == AttendanceDisplayStatus.working &&
         record.actualCheckIn != null) {
-      minutes = DateTime.now()
-          .difference(record.actualCheckIn!.toLocal())
-          .inMinutes;
+      minutes = DateTime.now().difference(record.actualCheckIn!.toLocal()).inMinutes;
     }
     if (minutes == null) return "--";
     final h = minutes ~/ 60;
     final m = minutes % 60;
-    return "${h}h ${m.toString().padLeft(2, '0')}m";
+    // Dashboard wali hi 'duration' key: "{}h {}m"
+    return 'dashboard.duration'.tr(args: ['$h', m.toString().padLeft(2, '0')]);
   }
 
   Widget _buildStatusChip(
@@ -762,7 +747,9 @@ class _AttendanceHistoryScreenState
     );
   }
 
-  String _formatTime(DateTime dt) => DateFormat("hh:mm a").format(dt.toLocal());
+  /// "10:30 AM" (dashboard jaisa fixed AM/PM, LTR locked)
+  String _formatTime(DateTime dt) =>
+      _ltrIso(DateFormat("hh:mm a", 'en').format(dt.toLocal()));
 
   // ==================== CALENDAR PICKER (table_calendar) ====================
   Future<void> _openCalendarPicker(BuildContext context) async {
@@ -774,6 +761,22 @@ class _AttendanceHistoryScreenState
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (sheetContext) {
+        final font = _fontFor(sheetContext);
+        final isUrdu = font == 'NotoNastaliqUrdu';
+        final locale = sheetContext.locale.toString();
+
+        TextStyle style({
+          double size = 12,
+          Color color = AppColors.headlineTextColor,
+        }) =>
+            TextStyle(
+              fontFamily: font,
+              fontSize: size,
+              fontWeight: FontWeight.w600,
+              color: color,
+              height: isUrdu ? 1.5 : null,
+            );
+
         return StatefulBuilder(
           builder: (sheetContext, setSheetState) {
             return Container(
@@ -802,8 +805,8 @@ class _AttendanceHistoryScreenState
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const AppText(
-                        "Jump to date",
+                      AppText(
+                        'attendance_history.jump_to_date'.tr(),
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                       ),
@@ -822,101 +825,69 @@ class _AttendanceHistoryScreenState
                     ],
                   ),
                   const SizedBox(height: 6),
-                  TableCalendar(
-                    firstDay: DateTime(2020, 1, 1),
-                    lastDay: DateTime.now(),
-                    focusedDay: tempFocused,
-                    startingDayOfWeek: StartingDayOfWeek.monday,
-                    availableGestures: AvailableGestures.horizontalSwipe,
-                    selectedDayPredicate: (day) => isSameDay(tempSelected, day),
-                    onDaySelected: (selected, focused) {
-                      setSheetState(() {
-                        tempSelected = selected;
+
+                  // Calendar grid LTR me lock (Mon..Sun order aur arrows sahi rahein),
+                  // mahine/weekday ke naam locale se translate hote hain.
+                  Directionality(
+                    textDirection: TextDirection.ltr,
+                    child: TableCalendar(
+                      locale: locale,
+                      firstDay: DateTime(2020, 1, 1),
+                      lastDay: DateTime.now(),
+                      focusedDay: tempFocused,
+                      startingDayOfWeek: StartingDayOfWeek.monday,
+                      availableGestures: AvailableGestures.horizontalSwipe,
+                      selectedDayPredicate: (day) => isSameDay(tempSelected, day),
+                      onDaySelected: (selected, focused) {
+                        setSheetState(() {
+                          tempSelected = selected;
+                          tempFocused = focused;
+                        });
+                      },
+                      onPageChanged: (focused) {
                         tempFocused = focused;
-                      });
-                    },
-                    onPageChanged: (focused) {
-                      tempFocused = focused;
-                    },
-                    calendarFormat: CalendarFormat.month,
-                    headerStyle: const HeaderStyle(
-                      formatButtonVisible: false,
-                      titleCentered: true,
-                      titleTextStyle: TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.headlineTextColor,
+                      },
+                      calendarFormat: CalendarFormat.month,
+                      headerStyle: HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                        titleTextStyle: style(size: 13),
+                        leftChevronIcon: const Icon(
+                          Icons.chevron_left_rounded,
+                          color: AppColors.primaryColor,
+                        ),
+                        rightChevronIcon: const Icon(
+                          Icons.chevron_right_rounded,
+                          color: AppColors.primaryColor,
+                        ),
                       ),
-                      leftChevronIcon: Icon(
-                        Icons.chevron_left_rounded,
-                        color: AppColors.primaryColor,
+                      daysOfWeekStyle: DaysOfWeekStyle(
+                        weekdayStyle: style(size: 11, color: AppColors.labelTextColor),
+                        weekendStyle: style(size: 11, color: AppColors.labelTextColor),
                       ),
-                      rightChevronIcon: Icon(
-                        Icons.chevron_right_rounded,
-                        color: AppColors.primaryColor,
-                      ),
-                    ),
-                    daysOfWeekStyle: const DaysOfWeekStyle(
-                      weekdayStyle: TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.labelTextColor,
-                      ),
-                      weekendStyle: TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.labelTextColor,
-                      ),
-                    ),
-                    calendarStyle: CalendarStyle(
-                      outsideDaysVisible: false,
-                      cellMargin: const EdgeInsets.all(4),
-                      defaultTextStyle: const TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.headlineTextColor,
-                      ),
-                      weekendTextStyle: const TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.headlineTextColor,
-                      ),
-                      disabledTextStyle: TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.placeholderColor.withOpacity(.5),
-                      ),
-                      todayDecoration: BoxDecoration(
-                        color: AppColors.primaryColor.withOpacity(.12),
-                        shape: BoxShape.circle,
-                      ),
-                      todayTextStyle: const TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primaryColor,
-                      ),
-                      selectedDecoration: const BoxDecoration(
-                        color: AppColors.primaryColor,
-                        shape: BoxShape.circle,
-                      ),
-                      selectedTextStyle: const TextStyle(
-                        fontFamily: "Poppins",
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.whiteColor,
+                      calendarStyle: CalendarStyle(
+                        outsideDaysVisible: false,
+                        cellMargin: const EdgeInsets.all(4),
+                        defaultTextStyle: style(),
+                        weekendTextStyle: style(),
+                        disabledTextStyle:
+                        style(color: AppColors.placeholderColor.withOpacity(.5)),
+                        todayDecoration: BoxDecoration(
+                          color: AppColors.primaryColor.withOpacity(.12),
+                          shape: BoxShape.circle,
+                        ),
+                        todayTextStyle: style(color: AppColors.primaryColor),
+                        selectedDecoration: const BoxDecoration(
+                          color: AppColors.primaryColor,
+                          shape: BoxShape.circle,
+                        ),
+                        selectedTextStyle: style(color: AppColors.whiteColor),
                       ),
                     ),
                   ),
                   const SizedBox(height: 14),
                   AppButton(
-                    text: "Apply",
+                    text: 'attendance_history.apply'.tr(),
                     icon: Icons.check_rounded,
                     gradient: AppColors.primaryGradient,
                     onTap: () {
@@ -947,41 +918,12 @@ class _AttendanceHistoryScreenState
     );
   }
 
-  String _monthLabel(DateTime date) {
-    const months = [
-      "January",
-      "February",
-      "March",
-      "April",
-      "May",
-      "June",
-      "July",
-      "August",
-      "September",
-      "October",
-      "November",
-      "December",
-    ];
-    return "${months[date.month - 1]} ${date.year}";
-  }
+  // Hardcoded month lists hata di: ab DateFormat se locale ke hisaab se aate hain
+  String _monthLabel(DateTime date) =>
+      DateFormat("MMMM yyyy", context.locale.toString()).format(date);
 
-  String _monthShortLabel(DateTime date) {
-    const months = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ];
-    return "${months[date.month - 1]} ${date.year}";
-  }
+  String _monthShortLabel(DateTime date) =>
+      DateFormat("MMM yyyy", context.locale.toString()).format(date);
 }
 
 /// Live pulse dot for the "Working" status chip.
@@ -993,8 +935,7 @@ class _BlinkingDot extends StatefulWidget {
   State<_BlinkingDot> createState() => _BlinkingDotState();
 }
 
-class _BlinkingDotState extends State<_BlinkingDot>
-    with SingleTickerProviderStateMixin {
+class _BlinkingDotState extends State<_BlinkingDot> with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _opacity;
 
@@ -1005,10 +946,8 @@ class _BlinkingDotState extends State<_BlinkingDot>
       vsync: this,
       duration: const Duration(milliseconds: 700),
     )..repeat(reverse: true);
-    _opacity = Tween<double>(
-      begin: 1,
-      end: .25,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _opacity = Tween<double>(begin: 1, end: .25)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override

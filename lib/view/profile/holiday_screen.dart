@@ -1,7 +1,9 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/errors/failure.dart';
+import '../../localization/lanaguge_provider.dart';
 import '../../model/holiday_model.dart';
 import '../../utils/app_topbar.dart';
 import '../../viewmodel/holiday_viewmodel.dart';
@@ -10,11 +12,17 @@ import '../../widget/app_colors.dart';
 import '../../widget/app_loader.dart';
 import '../../widget/app_text.dart';
 
+/// Number / year ka order Urdu me ulta na ho.
+String _ltrIso(String s) => '\u2066$s\u2069';
+
 class HolidaysScreen extends ConsumerWidget {
   const HolidaysScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Language badalte hi ye screen turant rebuild ho
+    ref.watch(languageProvider);
+
     final holidaysAsync = ref.watch(holidayViewModelProvider);
     final year = ref.read(holidayViewModelProvider.notifier).currentYear;
 
@@ -33,15 +41,16 @@ class HolidaysScreen extends ConsumerWidget {
               onRefresh: () =>
                   ref.read(holidayViewModelProvider.notifier).refresh(),
               child: ListView(
-                padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 16),
+                padding: EdgeInsetsDirectional.fromSTEB(hPad, 6, hPad, 16),
                 children: [
-                  const AppTopBar(title: "Company Holidays"),                  const SizedBox(height: 10),
+                  AppTopBar(title: 'holidays.title'.tr()),
+                  const SizedBox(height: 10),
                   _buildYearSelector(context, ref, year),
                   const SizedBox(height: 12),
                   holidaysAsync.when(
                     loading: () => const _HolidaysSkeleton(),
                     error: (error, _) => _buildErrorState(ref, error),
-                    data: (holidays) => _buildContent(holidays),
+                    data: (holidays) => _buildContent(context, holidays),
                   ),
                 ],
               ),
@@ -52,82 +61,59 @@ class HolidaysScreen extends ConsumerWidget {
     );
   }
 
-  // ==================== TOP BAR ====================
-  Widget _buildTopBar(BuildContext context) {
-    return Row(
-      children: [
-        InkWell(
-          onTap: () => Navigator.maybePop(context),
-          customBorder: const CircleBorder(),
-          child: const Padding(
-            padding: EdgeInsets.all(4),
-            child: Icon(
-              Icons.arrow_back_rounded,
-              size: 20,
-              color: AppColors.headlineTextColor,
-            ),
-          ),
-        ),
-        const Expanded(
-          child: AppText(
-            "Company Holidays",
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-            textAlign: TextAlign.center,
-          ),
-        ),
-        const SizedBox(width: 28),
-      ],
-    );
-  }
-
   // ==================== YEAR SELECTOR ====================
   Widget _buildYearSelector(BuildContext context, WidgetRef ref, int year) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        InkWell(
-          onTap: () =>
-              ref.read(holidayViewModelProvider.notifier).loadYear(year - 1),
-          customBorder: const CircleBorder(),
-          child: const Padding(
-            padding: EdgeInsets.all(5),
-            child: Icon(
-              Icons.chevron_left_rounded,
-              size: 20,
-              color: AppColors.labelTextColor,
+    // Pichla saal left, agla saal right: Urdu me bhi isi side par rahenge
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          InkWell(
+            onTap: () =>
+                ref.read(holidayViewModelProvider.notifier).loadYear(year - 1),
+            customBorder: const CircleBorder(),
+            child: const Padding(
+              padding: EdgeInsets.all(5),
+              child: Icon(
+                Icons.chevron_left_rounded,
+                size: 20,
+                color: AppColors.labelTextColor,
+              ),
             ),
           ),
-        ),
-        SizedBox(
-          width: 80,
-          child: AppText(
-            "$year",
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            textAlign: TextAlign.center,
-          ),
-        ),
-        InkWell(
-          onTap: () =>
-              ref.read(holidayViewModelProvider.notifier).loadYear(year + 1),
-          customBorder: const CircleBorder(),
-          child: const Padding(
-            padding: EdgeInsets.all(5),
-            child: Icon(
-              Icons.chevron_right_rounded,
-              size: 20,
-              color: AppColors.labelTextColor,
+          SizedBox(
+            width: 80,
+            child: AppText(
+              "$year",
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              textAlign: TextAlign.center,
             ),
           ),
-        ),
-      ],
+          InkWell(
+            onTap: () =>
+                ref.read(holidayViewModelProvider.notifier).loadYear(year + 1),
+            customBorder: const CircleBorder(),
+            child: const Padding(
+              padding: EdgeInsets.all(5),
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: AppColors.labelTextColor,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
   // ==================== CONTENT (grouped by month) ====================
-  Widget _buildContent(List<HolidayModel> holidays) {
+  Widget _buildContent(BuildContext context, List<HolidayModel> holidays) {
     if (holidays.isEmpty) return _buildEmptyState();
+
+    final locale = context.locale.toString();
 
     final sorted = [...holidays]
       ..sort((a, b) => a.holidayDate.compareTo(b.holidayDate));
@@ -135,9 +121,10 @@ class HolidaysScreen extends ConsumerWidget {
     final upcoming = sorted.where((h) => !h.isPast).toList();
     final next = upcoming.isNotEmpty ? upcoming.first : null;
 
+    // Mahine ke naam selected language me (September 2026 / सितंबर 2026 / ستمبر 2026)
     final Map<String, List<HolidayModel>> grouped = {};
     for (final h in sorted) {
-      final key = DateFormat("MMMM yyyy").format(h.holidayDate);
+      final key = DateFormat("MMMM yyyy", locale).format(h.holidayDate);
       grouped.putIfAbsent(key, () => []).add(h);
     }
 
@@ -145,7 +132,7 @@ class HolidaysScreen extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (next != null) ...[
-          _buildNextHolidayBanner(next),
+          _buildNextHolidayBanner(context, next),
           const SizedBox(height: 16),
         ],
         ...grouped.entries.map(
@@ -165,7 +152,7 @@ class HolidaysScreen extends ConsumerWidget {
                 ...entry.value.map(
                       (h) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: _buildHolidayCard(h),
+                    child: _buildHolidayCard(context, h),
                   ),
                 ),
               ],
@@ -177,16 +164,14 @@ class HolidaysScreen extends ConsumerWidget {
   }
 
   // ==================== NEXT HOLIDAY BANNER ====================
-  Widget _buildNextHolidayBanner(HolidayModel holiday) {
+  Widget _buildNextHolidayBanner(BuildContext context, HolidayModel holiday) {
+    final locale = context.locale.toString();
     final now = DateTime.now();
-    final daysAway =
-        DateTime(
-          holiday.holidayDate.year,
-          holiday.holidayDate.month,
-          holiday.holidayDate.day,
-        )
-            .difference(DateTime(now.year, now.month, now.day))
-            .inDays;
+    final daysAway = DateTime(
+      holiday.holidayDate.year,
+      holiday.holidayDate.month,
+      holiday.holidayDate.day,
+    ).difference(DateTime(now.year, now.month, now.day)).inDays;
 
     return Container(
       width: double.infinity,
@@ -225,13 +210,14 @@ class HolidaysScreen extends ConsumerWidget {
               children: [
                 AppText(
                   holiday.isToday
-                      ? "Today's Holiday"
-                      : "Next Holiday • ${daysAway}d away",
+                      ? 'holidays.today_holiday'.tr()
+                      : 'holidays.next_away'.tr(args: ['$daysAway']),
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
                   color: AppColors.whiteColor.withOpacity(.8),
                 ),
                 const SizedBox(height: 2),
+                // Holiday ka naam API se aata hai, waisa hi dikhega
                 AppText(
                   holiday.name,
                   fontSize: 14,
@@ -242,7 +228,7 @@ class HolidaysScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 2),
                 AppText(
-                  DateFormat("EEEE, MMM d").format(holiday.holidayDate),
+                  DateFormat("EEEE, MMM d", locale).format(holiday.holidayDate),
                   fontSize: 11,
                   color: AppColors.whiteColor.withOpacity(.85),
                 ),
@@ -255,13 +241,16 @@ class HolidaysScreen extends ConsumerWidget {
   }
 
   // ==================== HOLIDAY CARD ====================
-  Widget _buildHolidayCard(HolidayModel holiday) {
-    final Color accent = holiday.isFullDay
-        ? AppColors.successColor
-        : AppColors.warningColor;
+  Widget _buildHolidayCard(BuildContext context, HolidayModel holiday) {
+    final locale = context.locale.toString();
+    final Color accent =
+    holiday.isFullDay ? AppColors.successColor : AppColors.warningColor;
+
     final String typeLabel = holiday.isFullDay
-        ? "Full Day"
-        : "Half Day${holiday.halfDayPeriod != null ? ' • ${_periodLabel(holiday.halfDayPeriod!)}' : ''}";
+        ? 'holidays.full_day'.tr()
+        : (holiday.halfDayPeriod != null
+        ? 'holidays.half_day_period'.tr(args: [_periodLabel(holiday.halfDayPeriod!)])
+        : 'holidays.half_day'.tr());
 
     return Opacity(
       opacity: holiday.isPast ? .55 : 1,
@@ -274,12 +263,13 @@ class HolidaysScreen extends ConsumerWidget {
         ),
         child: Row(
           children: [
-            _buildDateBox(holiday.holidayDate, accent),
+            _buildDateBox(context, holiday.holidayDate, accent),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Holiday ka naam API se aata hai, waisa hi dikhega
                   AppText(
                     holiday.name,
                     fontSize: 13,
@@ -288,7 +278,7 @@ class HolidaysScreen extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 3),
-                  CaptionText(DateFormat("EEEE").format(holiday.holidayDate)),
+                  CaptionText(DateFormat("EEEE", locale).format(holiday.holidayDate)),
                 ],
               ),
             ),
@@ -300,7 +290,8 @@ class HolidaysScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildDateBox(DateTime date, Color accent) {
+  Widget _buildDateBox(BuildContext context, DateTime date, Color accent) {
+    final locale = context.locale.toString();
     return Container(
       width: 44,
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -318,10 +309,12 @@ class HolidaysScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 1),
           AppText(
-            DateFormat("MMM").format(date).toUpperCase(),
+            DateFormat("MMM", locale).format(date).toUpperCase(),
             fontSize: 9,
             fontWeight: FontWeight.w600,
             color: accent,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
@@ -347,9 +340,9 @@ class HolidaysScreen extends ConsumerWidget {
   String _periodLabel(String period) {
     switch (period.toUpperCase()) {
       case "FIRST_HALF":
-        return "1st Half";
+        return 'holidays.first_half'.tr();
       case "SECOND_HALF":
-        return "2nd Half";
+        return 'holidays.second_half'.tr();
       default:
         return period;
     }
@@ -371,7 +364,7 @@ class HolidaysScreen extends ConsumerWidget {
             height: 44,
             width: 44,
             alignment: Alignment.center,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: AppColors.primaryLight,
               shape: BoxShape.circle,
             ),
@@ -382,14 +375,15 @@ class HolidaysScreen extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 10),
-          const AppText(
-            "No holidays found",
+          AppText(
+            'holidays.empty_title'.tr(),
             fontSize: 13,
             fontWeight: FontWeight.w600,
+            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 3),
           AppText(
-            "No holidays are listed for this year yet.",
+            'holidays.empty_sub'.tr(),
             fontSize: 11,
             color: AppColors.labelTextColor,
             textAlign: TextAlign.center,
@@ -401,9 +395,7 @@ class HolidaysScreen extends ConsumerWidget {
 
   // ==================== ERROR STATE ====================
   Widget _buildErrorState(WidgetRef ref, Object error) {
-    final message = error is Failure
-        ? error.message
-        : "Couldn't load holidays.";
+    final message = error is Failure ? error.message : 'holidays.err_load'.tr();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -430,7 +422,7 @@ class HolidaysScreen extends ConsumerWidget {
           SizedBox(
             width: 130,
             child: AppButton(
-              text: "Retry",
+              text: 'common.retry'.tr(),
               icon: Icons.refresh_rounded,
               height: 40,
               onTap: () =>

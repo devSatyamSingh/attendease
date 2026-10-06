@@ -1,48 +1,48 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import '../../model/attendance_model.dart';
 import '../../widget/app_colors.dart';
-
 
 extension AttendanceStatusUi on AttendanceModel {
   String get statusLabel {
     switch (displayStatus) {
       case AttendanceDisplayStatus.working:
-        return "Working";
+        return 'attendance_status.working'.tr();
       case AttendanceDisplayStatus.missingCheckout:
-        return "Missing Checkout";
+        return 'attendance_status.missing_checkout'.tr();
       case AttendanceDisplayStatus.late:
-        return "Late (${lateMinutes}m)";
+        return 'attendance_status.late_by'.tr(args: ['${lateMinutes ?? 0}']);
       case AttendanceDisplayStatus.onTime:
-        return "On Time";
+        return 'attendance_status.on_time'.tr();
       case AttendanceDisplayStatus.notCheckedIn:
-        return "Not Checked In";
+        return 'attendance_status.not_checked_in'.tr();
       case AttendanceDisplayStatus.absent:
-        return "Absent";
+        return 'attendance_status.absent'.tr();
       case AttendanceDisplayStatus.onLeave:
-        return "On Leave";
+        return 'attendance_status.on_leave'.tr();
       case AttendanceDisplayStatus.halfDayLeave:
-        return "Half Day Leave";
+        return 'attendance_status.half_day_leave'.tr();
       case AttendanceDisplayStatus.holiday:
-        return "Holiday";
+        return 'attendance_status.holiday'.tr();
       case AttendanceDisplayStatus.halfDayHoliday:
-        return "Half Day Holiday";
+        return 'attendance_status.half_day_holiday'.tr();
     }
   }
 
   String get statusSubtitle {
     switch (displayStatus) {
       case AttendanceDisplayStatus.onLeave:
-        return "Full day leave";
+        return 'attendance_status.sub_full_day_leave'.tr();
       case AttendanceDisplayStatus.halfDayLeave:
-        return "Half day leave";
+        return 'attendance_status.sub_half_day_leave'.tr();
       case AttendanceDisplayStatus.holiday:
-        return "Public holiday";
+        return 'attendance_status.sub_public_holiday'.tr();
       case AttendanceDisplayStatus.halfDayHoliday:
-        return "Half day holiday";
+        return 'attendance_status.sub_half_day_holiday'.tr();
       case AttendanceDisplayStatus.absent:
-        return "No attendance marked";
+        return 'attendance_status.sub_no_attendance'.tr();
       case AttendanceDisplayStatus.notCheckedIn:
-        return "Not checked in";
+        return 'attendance_status.sub_not_checked_in'.tr();
       default:
         return "—";
     }

@@ -132,7 +132,7 @@ class _ProfileContent extends ConsumerWidget {
               const SizedBox(height: 12),
               _buildSettingsList(context),
               const SizedBox(height: 16),
-              _buildSignOutButton(context, ref),
+              const _SignOutButton(),
               const SizedBox(height: 12),
               Center(
                 child: CaptionText(
@@ -783,6 +783,60 @@ class _DeviceCardSkeleton extends StatelessWidget {
         const SizedBox(height: 12),
         AppSkeletonBox(height: 58, borderRadius: 14),
       ],
+    );
+  }
+}
+
+// ==================== SIGN OUT BUTTON ====================
+class _SignOutButton extends ConsumerStatefulWidget {
+  const _SignOutButton();
+
+  @override
+  ConsumerState<_SignOutButton> createState() => _SignOutButtonState();
+}
+
+class _SignOutButtonState extends ConsumerState<_SignOutButton> {
+  bool _loading = false;
+
+  Future<void> _handleSignOut() async {
+    final confirmed = await AnimatedConfirmDialog.show(
+      context,
+      icon: Icons.logout_rounded,
+      iconColor: AppColors.errorColor,
+      title: 'profile.sign_out_title'.tr(),
+      message: 'profile.sign_out_msg'.tr(),
+      cancelText: 'common.cancel'.tr(),
+      confirmText: 'profile.sign_out_confirm'.tr(),
+      confirmColor: AppColors.errorColor,
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    // await se pehle navigator pakad lo, widget dispose bhi ho jaye to
+    // navigation chalega.
+    final navigator = Navigator.of(context);
+
+    setState(() => _loading = true);
+    try {
+      await ref.read(authViewModelProvider.notifier).logout();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+
+    navigator.pushNamedAndRemoveUntil(RouteNames.login, (route) => false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AppButton(
+      text: 'profile.sign_out'.tr(),
+      icon: Icons.logout_rounded,
+      color: AppColors.errorColor.withOpacity(.1),
+      textColor: AppColors.errorColor,
+      iconColor: AppColors.errorColor,
+      boxShadow: const [],
+      loading: _loading,
+      onTap: _loading ? null : _handleSignOut,
     );
   }
 }

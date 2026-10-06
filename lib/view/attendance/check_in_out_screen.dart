@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/constants/app_constants.dart';
 import '../../core/errors/failure.dart';
 import '../../model/attendance_model.dart';
@@ -13,6 +15,9 @@ import '../../viewmodel/attendance_viewmodel.dart';
 import '../../viewmodel/device_security_viewmodel.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
+
+/// Time / number ka order Urdu me ulta na ho.
+String _ltrIso(String s) => '\u2066$s\u2069';
 
 class CheckInScreen extends ConsumerStatefulWidget {
   const CheckInScreen({super.key});
@@ -61,7 +66,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
         _locatingPreview = false;
         _mockDetected = mocked || !security.isSafe;
         _blockMessage = mocked
-            ? "Fake/Mock location detected. Please turn off mock location apps and try again."
+            ? 'check_in.mock_detected'.tr()
             : (security.isSafe ? null : security.message);
       });
 
@@ -75,7 +80,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
       setState(() => _locatingPreview = false);
       AppUtils.showErrorSnackbar(
         context,
-        "Couldn't get your location. Please check GPS/permission and try again.",
+        'check_in.loc_error'.tr(),
       );
     }
   }
@@ -85,20 +90,20 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
-        title: const AppText("Action blocked", fontSize: 16, fontWeight: FontWeight.w500),
+        title: AppText('check_in.action_blocked'.tr(), fontSize: 16, fontWeight: FontWeight.w500),
         content: AppText(message, fontSize: 13, color: AppColors.labelTextColor),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const AppText("Close", fontSize: 13, fontWeight: FontWeight.w500),
+            child: AppText('check_in.close'.tr(), fontSize: 13, fontWeight: FontWeight.w500),
           ),
           TextButton(
             onPressed: () async {
               Navigator.pop(dialogContext);
               await _primeLocation(); // dobara check
             },
-            child: const AppText(
-              "Check again",
+            child: AppText(
+              'check_in.check_again'.tr(),
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -118,7 +123,9 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: AppText(
-          gpsUnavailable ? "GPS not responding" : "Location needed",
+          gpsUnavailable
+              ? 'check_in.gps_not_responding'.tr()
+              : 'dashboard.location_needed'.tr(),
           fontSize: 16,
           fontWeight: FontWeight.w500,
         ),
@@ -126,7 +133,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogContext),
-            child: const AppText("Not now", fontSize: 13, fontWeight: FontWeight.w500),
+            child: AppText('dashboard.not_now'.tr(), fontSize: 13, fontWeight: FontWeight.w500),
           ),
           if (gpsUnavailable)
             TextButton(
@@ -134,8 +141,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                 Navigator.pop(dialogContext);
                 await PermissionService().openLocationSettings();
               },
-              child: const AppText(
-                "Location settings",
+              child: AppText(
+                'check_in.location_settings'.tr(),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 color: AppColors.primaryColor,
@@ -152,8 +159,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
             },
             child: AppText(
               permanentlyDenied
-                  ? "Open Settings"
-                  : (gpsUnavailable ? "Try again" : "Allow"),
+                  ? 'dashboard.open_settings'.tr()
+                  : (gpsUnavailable ? 'check_in.try_again'.tr() : 'dashboard.allow'.tr()),
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -177,7 +184,9 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
       final justCheckedIn = today == null || !_isCheckedIn(today);
       AppUtils.showSnackbar(
         context,
-        justCheckedIn ? "Checked in successfully." : "Checked out — see you tomorrow!",
+        justCheckedIn
+            ? 'check_in.checked_in_success'.tr()
+            : 'dashboard.checkout_success'.tr(),
       );
       _primeLocation();
     } else {
@@ -201,33 +210,32 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
           AppUtils.showErrorSnackbar(context, error.message);
         }
       } else {
-        AppUtils.showErrorSnackbar(context, "Something went wrong. Please try again.");
+        AppUtils.showErrorSnackbar(context, 'errors.generic'.tr());
       }
     }
   }
 
   bool _isCheckedIn(AttendanceModel a) => a.actualCheckIn != null && a.actualCheckOut == null;
   bool _isCheckedOut(AttendanceModel a) => a.actualCheckOut != null;
+
   String _formatClock(DateTime dt) {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     final s = dt.second.toString().padLeft(2, '0');
     return "$h:$m:$s";
   }
+
   String _formatAmPm(DateTime dt) => dt.hour >= 12 ? "PM" : "AM";
-  String _formatDate(DateTime dt) {
-    const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const months = [
-      "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-    ];
-    return "${weekdays[dt.weekday - 1]}, ${months[dt.month - 1]} ${dt.day}";
-  }
+
+  // Hardcoded weekday/month lists hata di: ab selected language me aayega
+  String _formatDate(DateTime dt) =>
+      DateFormat("EEE, MMM d", context.locale.toString()).format(dt);
 
   String _formatTimeOfDay(DateTime dt) {
     final local = dt.toLocal();
     final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
     final m = local.minute.toString().padLeft(2, '0');
-    return "$hour12:$m ${local.hour >= 12 ? 'PM' : 'AM'}";
+    return _ltrIso("$hour12:$m ${local.hour >= 12 ? 'PM' : 'AM'}");
   }
 
   // ==================== BUILD ====================
@@ -310,9 +318,9 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
         Expanded(
           child: Column(
             children: [
-              AppText("Check In", fontSize: 16, fontWeight: FontWeight.w600),
+              AppText('check_in.title'.tr(), fontSize: 16, fontWeight: FontWeight.w600),
               const SizedBox(height: 2),
-              CaptionText("Location & Attendance Verification"),
+              CaptionText('check_in.subtitle'.tr(), textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -374,16 +382,18 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
               children: [
                 AppText(
                   _locatingPreview
-                      ? "Detecting location..."
-                      : (ready ? "Location ready" : "Location unavailable"),
+                      ? 'check_in.detecting'.tr()
+                      : (ready ? 'check_in.location_ready'.tr() : 'check_in.location_unavailable'.tr()),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
                 const SizedBox(height: 2),
                 CaptionText(
                   ready
-                      ? "±${_position!.accuracy.round()}m accuracy"
-                      : "Tap to allow location and try again",
+                      ? 'check_in.accuracy'.tr(
+                    args: [_ltrIso("±${_position!.accuracy.round()}m")],
+                  )
+                      : 'check_in.tap_to_allow'.tr(),
                 ),
               ],
             ),
@@ -391,8 +401,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
           if (!_locatingPreview)
             TextButton(
               onPressed: _primeLocation,
-              child: const AppText(
-                "Refresh",
+              child: AppText(
+                'check_in.refresh'.tr(),
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
                 color: AppColors.primaryColor,
@@ -415,16 +425,20 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
       child: _buildStatusRow(
         icon: Icons.access_time_rounded,
         iconColor: AppColors.primaryColor,
-        title: "Live System Clock",
+        title: 'check_in.live_clock'.tr(),
         subtitle: _formatDate(_now),
-        trailing: Row(
-          crossAxisAlignment: CrossAxisAlignment.baseline,
-          textBaseline: TextBaseline.alphabetic,
-          children: [
-            AppText(_formatClock(_now), fontSize: 19, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
-            const SizedBox(width: 4),
-            AppText(_formatAmPm(_now), fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.primaryColor),
-          ],
+        // Clock + AM/PM hamesha isi order me (Urdu me ulta nahi hoga)
+        trailing: Directionality(
+          textDirection: TextDirection.ltr,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              AppText(_formatClock(_now), fontSize: 19, fontWeight: FontWeight.w600, color: AppColors.primaryColor),
+              const SizedBox(width: 4),
+              AppText(_formatAmPm(_now), fontSize: 11, fontWeight: FontWeight.w500, color: AppColors.primaryColor),
+            ],
+          ),
         ),
       ),
     );
@@ -476,7 +490,9 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
     final bool checkedIn = today != null && _isCheckedIn(today);
     final bool active = !checkedOut && !isBusy && !blocked;
 
-    final String label = checkedOut ? "DONE" : (checkedIn ? "CHECK OUT" : "CHECK IN");
+    final String label = checkedOut
+        ? 'check_in.btn_done'.tr()
+        : (checkedIn ? 'dashboard.btn_check_out'.tr() : 'dashboard.btn_check_in'.tr());
     final IconData icon = checkedOut
         ? Icons.check_circle_rounded
         : (blocked
@@ -493,8 +509,9 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
           : [AppColors.primaryColor, AppColors.primaryDark],
     );
 
-    final String subLabel =
-    checkedOut ? "for today" : (blocked ? "Blocked" : "Tap to verify");
+    final String subLabel = checkedOut
+        ? 'check_in.for_today'.tr()
+        : (blocked ? 'check_in.blocked'.tr() : 'check_in.tap_to_verify'.tr());
 
     return Center(
       child: SizedBox(
@@ -555,6 +572,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                       fontWeight: FontWeight.w600,
                       color: AppColors.whiteColor,
                       letterSpacing: 1,
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 4),
                     AppText(
@@ -562,6 +580,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
                       fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: AppColors.whiteColor.withOpacity(.85),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 ),
@@ -593,8 +612,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
         Expanded(
           child: AppText(
             checkedOut
-                ? "You're done for today. This resets automatically tomorrow."
-                : "Make sure location is on before tapping — the check-in needs a live GPS fix.",
+                ? 'check_in.helper_done'.tr()
+                : 'check_in.helper_gps'.tr(),
             fontSize: 12,
             fontWeight: FontWeight.w500,
             color: AppColors.bodyTextColor,
@@ -606,11 +625,14 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
 
   // ==================== TODAY'S TIMELINE ====================
   Widget _buildTodayTimeline(BuildContext context, AttendanceModel? today) {
-    final checkInLabel =
-    today?.actualCheckIn != null ? _formatTimeOfDay(today!.actualCheckIn!) : "Pending";
+    final checkInLabel = today?.actualCheckIn != null
+        ? _formatTimeOfDay(today!.actualCheckIn!)
+        : 'check_in.pending'.tr();
     final checkOutLabel = today?.actualCheckOut != null
         ? _formatTimeOfDay(today!.actualCheckOut!)
-        : "Expected ${_formatExpected(today?.expectedLogoutTime)}";
+        : 'check_in.expected'.tr(
+      args: [_ltrIso(_formatExpected(today?.expectedLogoutTime))],
+    );
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -625,19 +647,22 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  AppText("Today's Timeline", fontSize: 13, fontWeight: FontWeight.w600),
-                  const SizedBox(height: 2),
-                  CaptionText("Scheduled Work Session"),
-                ],
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppText('check_in.timeline_title'.tr(), fontSize: 13, fontWeight: FontWeight.w600),
+                    const SizedBox(height: 2),
+                    CaptionText('check_in.timeline_sub'.tr()),
+                  ],
+                ),
               ),
+              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(color: AppColors.primaryLight, borderRadius: BorderRadius.circular(20)),
                 child: AppText(
-                  "${_formatExpected(today?.expectedLoginTime)} – ${_formatExpected(today?.expectedLogoutTime)}",
+                  _ltrIso("${_formatExpected(today?.expectedLoginTime)} – ${_formatExpected(today?.expectedLogoutTime)}"),
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
                   color: AppColors.primaryColor,
@@ -649,10 +674,10 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
           _buildTimelineRow(
             icon: Icons.check_circle_rounded,
             iconColor: today?.actualCheckIn != null ? AppColors.workingColor : AppColors.labelTextColor,
-            title: "Check-in",
+            title: 'check_in.tl_check_in'.tr(),
             subtitle: today?.lateMinutes != null && today!.lateMinutes! > 0
-                ? "Late by ${today.lateMinutes}m"
-                : "On schedule",
+                ? 'check_in.late_by'.tr(args: ['${today.lateMinutes}'])
+                : 'check_in.on_schedule'.tr(),
             trailing: checkInLabel,
             trailingColor: today?.actualCheckIn != null ? AppColors.workingColor : AppColors.bodyTextColor,
             showConnector: true,
@@ -661,8 +686,8 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
           _buildTimelineRow(
             icon: Icons.schedule_rounded,
             iconColor: today?.actualCheckOut != null ? AppColors.workingColor : AppColors.labelTextColor,
-            title: "Check-out",
-            subtitle: "Office boundary departure",
+            title: 'check_in.tl_check_out'.tr(),
+            subtitle: 'check_in.office_departure'.tr(),
             trailing: checkOutLabel,
             trailingColor: AppColors.bodyTextColor,
             showConnector: false,
@@ -724,6 +749,7 @@ class _CheckInScreenState extends ConsumerState<CheckInScreen> {
               ),
             ),
           ),
+          const SizedBox(width: 8),
           AppText(trailing, fontSize: 11, fontWeight: FontWeight.w500, color: trailingColor),
         ],
       ),

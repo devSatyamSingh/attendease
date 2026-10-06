@@ -15,10 +15,8 @@ class SplashScreen extends ConsumerStatefulWidget {
 
 class _SplashScreenState extends ConsumerState<SplashScreen>
     with TickerProviderStateMixin {
-  // Minimum branding time. Session check isse pehle khatam ho jaye to bhi
-  // itni der splash dikhta hai (jaldi ho jaye to flash na lage), lekin ab
-  // 2s ki jagah ~1s, aur session check slow ho to uska intezaar bhi karta hai.
-  static const _minSplash = Duration(milliseconds: 1000);
+
+  static const _minSplash = Duration(milliseconds: 1200);
   static const _entranceDuration = Duration(milliseconds: 600);
   static const _pulseDuration = Duration(milliseconds: 1400);
 

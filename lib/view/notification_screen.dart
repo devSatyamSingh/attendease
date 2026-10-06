@@ -1,6 +1,9 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../core/errors/failure.dart';
+import '../localization/lanaguge_provider.dart';
 import '../notification/notification_model.dart';
 import '../notification/notification_router.dart';
 import '../utils/app_utils.dart';
@@ -46,7 +49,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
       if (!mounted) return;
       AppUtils.showErrorSnackbar(
         context,
-        e is Failure ? e.message : "Could not mark notifications as read.",
+        e is Failure ? e.message : 'notifications.err_mark_read'.tr(),
       );
     }
   }
@@ -58,6 +61,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Language badalte hi ye screen turant rebuild ho
+    ref.watch(languageProvider);
+
     final asyncState = ref.watch(notificationListViewModelProvider);
     final unread = ref.watch(unreadCountProvider).value ?? 0;
 
@@ -67,6 +73,7 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
         backgroundColor: AppColors.scaffoldBgColor,
         elevation: 0,
         centerTitle: false,
+        // arrow_back_rounded RTL me apne aap mirror hota hai (sahi behavior)
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back_rounded,
@@ -75,21 +82,21 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
           onPressed: () => Navigator.maybePop(context),
         ),
         title: AppText(
-          "Notifications",
+          'notifications.title'.tr(),
           fontSize: 17,
           fontWeight: FontWeight.w600,
         ),
         actions: [
           if (unread > 0)
             Padding(
-              padding: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsetsDirectional.only(end: 8),
               child: TextButton(
                 onPressed: _markAllRead,
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
                 child: AppText(
-                  "Mark all read",
+                  'notifications.mark_all_read'.tr(),
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
                   color: AppColors.primaryColor,
@@ -105,8 +112,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
             child: asyncState.when(
               loading: () => const _NotificationSkeleton(),
               error: (e, _) => _ErrorView(
-                message:
-                e is Failure ? e.message : "Something went wrong.",
+                message: e is Failure
+                    ? e.message
+                    : 'notifications.something_wrong_short'.tr(),
                 onRetry: () =>
                     ref.invalidate(notificationListViewModelProvider),
               ),
@@ -123,9 +131,9 @@ class _NotificationScreenState extends ConsumerState<NotificationScreen> {
                     : ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount:
-                  s.items.length + (s.isLoadingMore ? 1 : 0),
+                  padding:
+                  const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 24),
+                  itemCount: s.items.length + (s.isLoadingMore ? 1 : 0),
                   separatorBuilder: (_, __) =>
                   const SizedBox(height: 10),
                   itemBuilder: (context, i) {
@@ -212,20 +220,23 @@ class _NotificationTile extends StatelessWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Title/body server se aata hai, waisa hi dikhega
                       Expanded(
                         child: AppText(
                           n.title,
                           fontSize: 14,
-                          fontWeight: n.isRead
-                              ? FontWeight.w600
-                              : FontWeight.w700,
+                          fontWeight:
+                          n.isRead ? FontWeight.w600 : FontWeight.w700,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       if (!n.isRead)
                         Container(
-                          margin: const EdgeInsets.only(left: 8, top: 4),
+                          margin: const EdgeInsetsDirectional.only(
+                            start: 8,
+                            top: 4,
+                          ),
                           width: 8,
                           height: 8,
                           decoration: const BoxDecoration(
@@ -253,7 +264,7 @@ class _NotificationTile extends StatelessWidget {
                         color: AppColors.placeholderColor,
                       ),
                       const SizedBox(width: 4),
-                      CaptionText(_timeAgo(n.createdAt)),
+                      CaptionText(_timeAgo(context, n.createdAt)),
                     ],
                   ),
                 ],
@@ -278,13 +289,14 @@ class _NotificationTile extends StatelessWidget {
     }
   }
 
-  String _timeAgo(DateTime t) {
+  String _timeAgo(BuildContext context, DateTime t) {
     final d = DateTime.now().difference(t);
-    if (d.inMinutes < 1) return "Just now";
-    if (d.inMinutes < 60) return "${d.inMinutes}m ago";
-    if (d.inHours < 24) return "${d.inHours}h ago";
-    if (d.inDays < 7) return "${d.inDays}d ago";
-    return "${t.day}/${t.month}/${t.year}";
+    if (d.inMinutes < 1) return 'time.just_now'.tr();
+    if (d.inMinutes < 60) return 'time.minutes_ago'.tr(args: ['${d.inMinutes}']);
+    if (d.inHours < 24) return 'time.hours_ago'.tr(args: ['${d.inHours}']);
+    if (d.inDays < 7) return 'time.days_ago'.tr(args: ['${d.inDays}']);
+    // Purani date: selected language ke hisaab se (28 Sep 2026 / २८ सित॰ ...)
+    return DateFormat("dd MMM yyyy", context.locale.toString()).format(t);
   }
 }
 
@@ -323,7 +335,7 @@ class _NotificationSkeletonState extends State<_NotificationSkeleton>
       animation: _controller,
       builder: (context, _) {
         return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+          padding: const EdgeInsetsDirectional.fromSTEB(16, 12, 16, 24),
           physics: const NeverScrollableScrollPhysics(),
           itemCount: 7,
           separatorBuilder: (_, __) => const SizedBox(height: 10),
@@ -384,7 +396,7 @@ class _ShimmerTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 FractionallySizedBox(
-                  alignment: Alignment.centerLeft,
+                  alignment: AlignmentDirectional.centerStart,
                   widthFactor: widthFactor,
                   child: _ShimmerBox(
                     progress: progress,
@@ -422,7 +434,7 @@ class _ShimmerBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Gradient shimmer — left se right sweep
+    // Gradient shimmer: left se right sweep
     return Container(
       height: height,
       width: width,
@@ -470,7 +482,7 @@ class _EmptyView extends StatelessWidget {
                   height: 88,
                   width: 88,
                   alignment: Alignment.center,
-                  decoration: BoxDecoration(
+                  decoration: const BoxDecoration(
                     color: AppColors.primaryLight,
                     shape: BoxShape.circle,
                   ),
@@ -482,15 +494,14 @@ class _EmptyView extends StatelessWidget {
                 ),
                 const SizedBox(height: 22),
                 AppText(
-                  "You're all caught up!",
+                  'notifications.caught_up'.tr(),
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
                 AppText(
-                  "When you receive leave approvals, holiday "
-                      "reminders, or announcements, they'll show up here.",
+                  'notifications.caught_up_sub'.tr(),
                   fontSize: 13,
                   fontWeight: FontWeight.w400,
                   color: AppColors.bodyTextColor,
@@ -516,7 +527,9 @@ class _EmptyView extends StatelessWidget {
                         color: AppColors.labelTextColor,
                       ),
                       const SizedBox(width: 6),
-                      CaptionText("No pending alerts"),
+                      Flexible(
+                        child: CaptionText('notifications.no_pending'.tr()),
+                      ),
                     ],
                   ),
                 ),
@@ -569,7 +582,7 @@ class _ErrorView extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               AppText(
-                "Something went wrong",
+                'notifications.something_wrong'.tr(),
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 textAlign: TextAlign.center,
@@ -606,7 +619,7 @@ class _ErrorView extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       AppText(
-                        "Try Again",
+                        'notifications.try_again'.tr(),
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
                         color: AppColors.whiteColor,
@@ -644,8 +657,9 @@ class NotificationBell extends ConsumerWidget {
           ),
         ),
         if (count > 0)
-          Positioned(
-            right: 6,
+        // RTL me badge bhi dusre kone par aayega
+          PositionedDirectional(
+            end: 6,
             top: 6,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),

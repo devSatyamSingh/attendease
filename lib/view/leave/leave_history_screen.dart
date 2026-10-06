@@ -1,14 +1,30 @@
+import 'package:easy_localization/easy_localization.dart' hide TextDirection;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import '../../core/errors/failure.dart';
 import '../../core/routes/route_name.dart';
+import '../../localization/lanaguge_provider.dart';
 import '../../model/leave_model.dart';
 import '../../utils/app_topbar.dart';
 import '../../viewmodel/leave_viewmodel.dart';
 import '../../widget/app_colors.dart';
 import '../../widget/app_text.dart';
 import 'leave_ui_helper.dart';
+
+// ==================== HELPERS ====================
+/// Time / number ka order Urdu me ulta na ho.
+String _ltrIso(String s) => '\u2066$s\u2069';
+
+/// 3.0 -> "3", 2.5 -> "2.5"
+String _fmt(double v) => v.toStringAsFixed(v % 1 == 0 ? 0 : 1);
+
+/// API status ("APPROVED") ko translate karo, key na mile to original dikhao.
+String _statusLabel(String raw) {
+  final key = 'status.${raw.toLowerCase().trim()}';
+  final translated = key.tr();
+  return translated == key ? raw : translated;
+}
 
 class LeaveHistoryScreen extends ConsumerStatefulWidget {
   const LeaveHistoryScreen({super.key});
@@ -43,12 +59,14 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Language badalte hi ye screen turant rebuild ho
+    ref.watch(languageProvider);
+
     final historyState = ref.watch(leaveHistoryViewModelProvider);
     final typesAsync = ref.watch(leaveTypesProvider);
     final countsAsync = ref.watch(leaveStatusCountsProvider);
 
     final screenWidth = MediaQuery.of(context).size.width;
-    // LeavesScreen jaisa hi responsive padding + max width
     final hPad = (screenWidth * 0.045).clamp(12.0, 24.0);
     final maxContentWidth = screenWidth > 700 ? 520.0 : double.infinity;
 
@@ -61,10 +79,10 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
             child: Column(
               children: [
                 Padding(
-                  padding: EdgeInsets.fromLTRB(hPad, 6, hPad, 0),
+                  padding: EdgeInsetsDirectional.fromSTEB(hPad, 6, hPad, 0),
                   child: Column(
                     children: [
-                      const AppTopBar(title: "Leave History"),
+                      AppTopBar(title: 'leave_history.title'.tr()),
                       const SizedBox(height: 10),
                       _buildFilterRow(historyState, countsAsync),
                       const SizedBox(height: 12),
@@ -97,7 +115,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
       children: [
         Expanded(
           child: _buildFilterChip(
-            label: "All",
+            label: 'leave_history.filter_all'.tr(),
             status: null,
             count: counts?["ALL"],
             currentFilter: historyState.statusFilter,
@@ -107,7 +125,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: _buildFilterChip(
-            label: "Pending",
+            label: 'status.pending'.tr(),
             status: "PENDING",
             count: counts?["PENDING"],
             currentFilter: historyState.statusFilter,
@@ -117,7 +135,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
         const SizedBox(width: 8),
         Expanded(
           child: _buildFilterChip(
-            label: "Approved",
+            label: 'status.approved'.tr(),
             status: "APPROVED",
             count: counts?["APPROVED"],
             currentFilter: historyState.statusFilter,
@@ -140,7 +158,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
       borderRadius: BorderRadius.circular(24),
       onTap: () => ref.read(leaveHistoryViewModelProvider.notifier).setStatusFilter(status),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 9),
+        padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 4),
         decoration: BoxDecoration(
           color: selected ? AppColors.primaryColor : AppColors.cardBgColor,
           borderRadius: BorderRadius.circular(24),
@@ -155,18 +173,22 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
               Container(
                 height: 6,
                 width: 6,
-                margin: const EdgeInsets.only(right: 5),
+                margin: const EdgeInsetsDirectional.only(end: 5),
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-            AppText(
-              label,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: selected ? AppColors.whiteColor : AppColors.bodyTextColor,
+            Flexible(
+              child: AppText(
+                label,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: selected ? AppColors.whiteColor : AppColors.bodyTextColor,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             const SizedBox(width: 4),
             AppText(
-              count != null ? "$count" : "…",
+              count != null ? _ltrIso("$count") : "…",
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: selected ? AppColors.whiteColor : AppColors.labelTextColor,
@@ -188,7 +210,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
     if (historyState.isEmpty && historyState.failure != null) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(hPad, 20, hPad, 12),
+        padding: EdgeInsetsDirectional.fromSTEB(hPad, 20, hPad, 12),
         children: [_buildErrorState(historyState.failure!)],
       );
     }
@@ -196,7 +218,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
     if (historyState.isEmpty) {
       return ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
+        padding: EdgeInsetsDirectional.fromSTEB(hPad, 0, hPad, 12),
         children: [_buildEmptyState()],
       );
     }
@@ -206,7 +228,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
     return ListView(
       controller: _scrollController,
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
+      padding: EdgeInsetsDirectional.fromSTEB(hPad, 0, hPad, 12),
       children: [
         ...historyState.items.map<Widget>(
               (item) => Padding(
@@ -228,11 +250,16 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 50),
       alignment: Alignment.center,
-      child: const Column(
+      child: Column(
         children: [
-          Icon(Icons.event_busy_rounded, size: 32, color: AppColors.placeholderColor),
-          SizedBox(height: 8),
-          AppText("No leave requests found", fontSize: 12, color: AppColors.labelTextColor),
+          const Icon(Icons.event_busy_rounded, size: 32, color: AppColors.placeholderColor),
+          const SizedBox(height: 8),
+          AppText(
+            'leave_history.empty'.tr(),
+            fontSize: 12,
+            color: AppColors.labelTextColor,
+            textAlign: TextAlign.center,
+          ),
         ],
       ),
     );
@@ -260,8 +287,8 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
           const SizedBox(height: 10),
           TextButton(
             onPressed: () => ref.read(leaveHistoryViewModelProvider.notifier).refresh(),
-            child: const AppText(
-              "Retry",
+            child: AppText(
+              'common.retry'.tr(),
               fontSize: 11,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
@@ -275,20 +302,29 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
   // ==================== HISTORY CARD ====================
   Widget _buildHistoryCard(LeaveRequestModel item, List<LeaveTypeModel> types) {
     final type = types.where((t) => t.leaveTypeId == item.leaveTypeId).toList();
-    final typeName = type.isNotEmpty ? type.first.name : "Leave";
+    // Leave type ka naam API se aata hai, waisa hi dikhega
+    final typeName = type.isNotEmpty ? type.first.name : 'leaves.leave_fallback'.tr();
     final code = type.isNotEmpty ? type.first.code : "";
     final icon = LeaveUiHelper.iconForCode(code);
     final accent = AppColors.requestStatusColor(item.status);
+
+    final days = item.totalDays;
+    final dayLabel = days == 1
+        ? 'leaves.day_one'.tr(args: [_fmt(days)])
+        : 'leaves.day_many'.tr(args: [_fmt(days)]);
 
     return IntrinsicHeight(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Color bar: LTR me left, RTL me right
           Container(
             width: 4,
             decoration: BoxDecoration(
               color: accent,
-              borderRadius: const BorderRadius.horizontal(left: Radius.circular(4)),
+              borderRadius: const BorderRadiusDirectional.horizontal(
+                start: Radius.circular(4),
+              ),
             ),
           ),
           Expanded(
@@ -296,7 +332,9 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
               padding: const EdgeInsets.all(12),
               decoration: const BoxDecoration(
                 color: AppColors.cardBgColor,
-                borderRadius: BorderRadius.horizontal(right: Radius.circular(16)),
+                borderRadius: BorderRadiusDirectional.horizontal(
+                  end: Radius.circular(16),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -324,6 +362,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      const SizedBox(width: 6),
                       _buildStatusChip(item.status, accent),
                     ],
                   ),
@@ -344,14 +383,13 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
                     spacing: 5,
                     runSpacing: 5,
                     children: [
-                      _buildTagChip(
-                        "${item.totalDays.toStringAsFixed(item.totalDays % 1 == 0 ? 0 : 1)} Day",
-                      ),
+                      _buildTagChip(dayLabel),
                       _buildTagChip(LeaveUiHelper.durationLabel(item.leaveDurationType)),
                     ],
                   ),
                   if (item.reason != null && item.reason!.isNotEmpty) ...[
                     const SizedBox(height: 8),
+                    // Reason user/API ka text hai, waisa hi dikhega
                     AppText(
                       '"${item.reason}"',
                       fontSize: 11,
@@ -361,9 +399,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
                   ],
                   if (item.appliedAt != null) ...[
                     const SizedBox(height: 6),
-                    CaptionText(
-                      "Applied on ${DateFormat("dd MMM • hh:mm a").format(item.appliedAt!.toLocal())}",
-                    ),
+                    CaptionText(_appliedOnLabel(item.appliedAt!)),
                   ],
                   if (item.isRejected &&
                       item.rejectionReason != null &&
@@ -386,8 +422,10 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
                           ),
                           const SizedBox(width: 7),
                           Expanded(
+                            // "Admin Note:" label translate hota hai,
+                            // rejection ka text API se jaisa aaya waisa hi.
                             child: AppText(
-                              "Admin Note: ${item.rejectionReason}",
+                              'leave_history.admin_note'.tr(args: [item.rejectionReason!]),
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                               color: AppColors.errorColor,
@@ -407,9 +445,19 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
   }
 
   String _dateRangeLabel(LeaveRequestModel r) {
-    final fmt = DateFormat("dd MMM yyyy");
+    final locale = context.locale.toString();
+    final fmt = DateFormat("dd MMM yyyy", locale);
     if (r.isSingleDay) return fmt.format(r.startDate);
-    return "${DateFormat("dd MMM").format(r.startDate)} – ${fmt.format(r.endDate)}";
+    return "${DateFormat("dd MMM", locale).format(r.startDate)} – ${fmt.format(r.endDate)}";
+  }
+
+  /// "Applied on 29 Sep • 06:56 PM" (time part LTR locked)
+  String _appliedOnLabel(DateTime appliedAt) {
+    final locale = context.locale.toString();
+    final local = appliedAt.toLocal();
+    final date = DateFormat("dd MMM", locale).format(local);
+    final time = DateFormat("hh:mm a", locale).format(local);
+    return 'leave_history.applied_on'.tr(args: ['$date • ${_ltrIso(time)}']);
   }
 
   Widget _buildTagChip(String label) {
@@ -444,7 +492,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
           const SizedBox(width: 4),
-          AppText(status, fontSize: 9, fontWeight: FontWeight.w600, color: color),
+          AppText(_statusLabel(status), fontSize: 9, fontWeight: FontWeight.w600, color: color),
         ],
       ),
     );
@@ -454,7 +502,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
   Widget _buildBottomBar(BuildContext context, double hPad) {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.fromLTRB(hPad, 10, hPad, 12),
+      padding: EdgeInsetsDirectional.fromSTEB(hPad, 10, hPad, 12),
       decoration: BoxDecoration(
         color: AppColors.scaffoldBgColor,
         boxShadow: [
@@ -482,16 +530,20 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
               ),
             ],
           ),
-          child: const Row(
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.edit_calendar_rounded, size: 18, color: AppColors.whiteColor),
-              SizedBox(width: 8),
-              AppText(
-                "Request Time Off",
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppColors.whiteColor,
+              const Icon(Icons.edit_calendar_rounded, size: 18, color: AppColors.whiteColor),
+              const SizedBox(width: 8),
+              Flexible(
+                child: AppText(
+                  'leave_history.request_time_off'.tr(),
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.whiteColor,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
             ],
           ),
@@ -501,6 +553,7 @@ class _LeaveHistoryScreenState extends ConsumerState<LeaveHistoryScreen> {
   }
 }
 
+// ==================== SKELETON ====================
 class _HistorySkeleton extends StatelessWidget {
   final double hPad;
   const _HistorySkeleton({required this.hPad});
@@ -509,7 +562,7 @@ class _HistorySkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: EdgeInsets.fromLTRB(hPad, 0, hPad, 12),
+      padding: EdgeInsetsDirectional.fromSTEB(hPad, 0, hPad, 12),
       children: List.generate(4, (i) {
         return Container(
           margin: const EdgeInsets.only(bottom: 10),

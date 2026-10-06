@@ -11,7 +11,7 @@ class Validators {
 
   static String? employeeIdOrEmail(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return "Employee ID or email is required";
+      return "email is required";
     }
     if (value.contains('@')) {
       return email(value);
